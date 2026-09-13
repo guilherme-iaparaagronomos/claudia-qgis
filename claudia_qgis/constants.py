@@ -47,3 +47,16 @@ def plugin_version():
 
 def user_agent():
     return f"ClaudIA-QGIS/{plugin_version()}"
+
+
+def versao_tupla(v):
+    """'0.2.0', 'v0.2.0', '0.2.0-e2e' → (0, 2, 0); ilegível → (0, 0, 0)."""
+    import re
+
+    m = re.match(r"^v?(\d+)\.(\d+)(?:\.(\d+))?", str(v or "").strip())
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)) if m else (0, 0, 0)
+
+
+# Onde a comunidade publica a versão mais recente do plugin (mesmo bloco que o poll manda)
+ENDPOINT_PLUGIN = "/api/qgis/plugin"
+RELEASES_URL = f"{REPO_URL}/releases"

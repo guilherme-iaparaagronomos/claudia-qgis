@@ -32,7 +32,7 @@ from urllib.parse import urlsplit
 
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
-from .constants import MAX_RESULT_BYTES, user_agent
+from .constants import MAX_RESULT_BYTES, plugin_version, user_agent, versao_tupla
 
 POLL_TIMEOUT_S = 45  # a comunidade segura ~20 s; folga para rede lenta
 RESULT_TIMEOUT_S = 90  # resultados grandes (render em base64) sobem devagar
@@ -71,6 +71,8 @@ class ComunidadeWorker(QObject):
     comando_recebido = pyqtSignal(dict)
     # estado: conectando | conectado | sem_rede | token_invalido | parado — e um detalhe legível
     estado_mudou = pyqtSignal(str, str)
+    # a comunidade anunciou versão do plugin maior que a instalada: {"versao", "zip_url", "url"}
+    versao_disponivel = pyqtSignal(dict)
 
     def __init__(self, base_url: str, token: str, info: dict):
         super().__init__()
@@ -83,6 +85,7 @@ class ComunidadeWorker(QObject):
         self._conn = None
         self._ssl = _contexto_ssl()
         self._estado = None
+        self._versao_avisada = None
 
     # ------------------------------------------------ chamados da thread principal
     def atualizar_info(self, **campos):
@@ -133,6 +136,7 @@ class ComunidadeWorker(QObject):
 
             backoff = BACKOFF_INICIAL_S
             self._emitir("conectado", "conectado à comunidade")
+            self._checar_versao(resposta.get("plugin_ultima") if isinstance(resposta, dict) else None)
             comando = resposta.get("comando") if isinstance(resposta, dict) else None
             if not comando or not isinstance(comando, dict):
                 continue
@@ -225,6 +229,16 @@ class ComunidadeWorker(QObject):
                 conn.close()
             except Exception:
                 pass
+
+    def _checar_versao(self, ultima):
+        """Emite `versao_disponivel` UMA vez por versão anunciada maior que a instalada."""
+        if not isinstance(ultima, dict) or not ultima.get("versao") or not ultima.get("zip_url"):
+            return
+        versao = str(ultima["versao"])
+        if versao_tupla(versao) <= versao_tupla(plugin_version()) or versao == self._versao_avisada:
+            return
+        self._versao_avisada = versao
+        self.versao_disponivel.emit({"versao": versao, "zip_url": str(ultima["zip_url"]), "url": str(ultima.get("url") or "")})
 
     def _emitir(self, estado, detalhe):
         # `conectado` a cada poll seria um sinal a cada 20 s à toa; só muda de estado

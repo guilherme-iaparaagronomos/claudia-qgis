@@ -44,6 +44,27 @@ plugin._estado_mudou("conectado", "x")
 assert plugin.action.text() == "ClaudIA · CONECTADO"
 plugin._estado_mudou("sem_rede", "HTTP 429")
 assert "sem conexão" in plugin.action.text()
+
+# atualização: oferta uma vez por versão; versão igual/menor não oferece
+from claudia_qgis import updater  # noqa: E402
+from claudia_qgis.constants import plugin_version, versao_tupla  # noqa: E402
+
+assert versao_tupla("0.2.0") > versao_tupla("0.1.9") and versao_tupla("v1.0") == (1, 0, 0) and versao_tupla("lixo") == (0, 0, 0)
+plugin._oferecer_atualizacao({"versao": "9.9.9", "zip_url": "https://example.invalid/claudia_qgis-9.9.9.zip", "url": ""})
+assert plugin._versao_oferecida == "9.9.9"
+assert iface.messageBar.return_value.pushWidget.called, "barra 'Atualizar agora' não foi empurrada"
+print("  ok  oferta de atualização 9.9.9 → barra com botão")
+dist = os.path.join(RAIZ, "dist", f"claudia_qgis-{plugin_version()}.zip")
+if os.path.exists(dist):
+    assert updater.validar_zip(dist) == plugin_version()
+    print("  ok  validar_zip do ZIP empacotado →", plugin_version())
+try:
+    updater.validar_zip(os.path.join(RAIZ, "LICENSE"))
+    raise AssertionError("validar_zip aceitou arquivo que não é ZIP")
+except Exception as e:
+    assert not isinstance(e, AssertionError), e
+    print("  ok  validar_zip recusa arquivo que não é o plugin")
+assert plugin.atualizar_action is not None
 plugin.unload()
 assert plugin.status_label is None and plugin.action is None
 print("\nTUDO OK")

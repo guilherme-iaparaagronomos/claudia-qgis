@@ -6,6 +6,7 @@ Modificado por OagronomIA (2026-09-13) a partir de nkarasiak/qgis-mcp — GPLv2+
 """
 
 import contextlib
+import functools
 import os
 
 from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsSettings
@@ -27,6 +28,7 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
 )
 
+from . import updater
 from .community import ComunidadeWorker
 from .compat import (
     MSG_CRITICAL,
@@ -40,9 +42,11 @@ from .constants import (
     LOG_TAG,
     PAGINA_CONECTOR,
     REPO_URL,
+    RELEASES_URL,
     SETTINGS_PREFIX,
     UPSTREAM_URL,
     plugin_version,
+    versao_tupla,
 )
 from .server import ClaudiaExecutor
 
@@ -189,6 +193,9 @@ class ClaudiaQgisPlugin:
         self._timer_info = None
         self._avisou_conexao = False
         self._avisou_rede = False
+        self.atualizar_action = None
+        self._versao_oferecida = None
+        self._atualizando = False
 
     # --------------------------------------------------------------- ícones
     def _icone_base(self):
@@ -247,6 +254,8 @@ class ClaudiaQgisPlugin:
         self.conectar_action.triggered.connect(self._abrir_dialogo)
         self.pagina_action = QAction("Minha página na comunidade", self.iface.mainWindow())
         self.pagina_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(_pagina_conector())))
+        self.atualizar_action = QAction("Atualizar o plugin…", self.iface.mainWindow())
+        self.atualizar_action.triggered.connect(self._verificar_atualizacao)
         self.sobre_action = QAction("Sobre a ClaudIA QGIS", self.iface.mainWindow())
         self.sobre_action.triggered.connect(self._sobre)
 
@@ -254,6 +263,7 @@ class ClaudiaQgisPlugin:
         menu.addAction(self.conectar_action)
         menu.addAction(self.pagina_action)
         menu.addSeparator()
+        menu.addAction(self.atualizar_action)
         menu.addAction(self.sobre_action)
 
         self.tool_button = QToolButton()
@@ -273,13 +283,22 @@ class ClaudiaQgisPlugin:
         self.iface.addPluginToMenu(MENU, self.action)
         self.iface.addPluginToMenu(MENU, self.conectar_action)
         self.iface.addPluginToMenu(MENU, self.pagina_action)
+        self.iface.addPluginToMenu(MENU, self.atualizar_action)
         self.iface.addPluginToMenu(MENU, self.sobre_action)
         for sub in self.iface.pluginMenu().actions():
             if sub.text() == MENU and sub.menu():
                 sub.setIcon(self._icone_base())
                 break
 
-        if _cfg("autostart", False, bool) and _cfg("token", ""):
+        if _cfg("reconectar_apos_update", False, bool):
+            # a versão anterior se atualizou e pediu para voltar conectada
+            _set_cfg("reconectar_apos_update", False)
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushSuccess(LOG_TAG, f"Plugin atualizado para a versão {plugin_version()}.")
+            if _cfg("token", ""):
+                self.action.setChecked(True)
+                self._conectar()
+        elif _cfg("autostart", False, bool) and _cfg("token", ""):
             self.action.setChecked(True)
             self._conectar()
 
@@ -292,10 +311,10 @@ class ClaudiaQgisPlugin:
                 self.action.triggered.disconnect(self._alternar)
             self.iface.removePluginMenu(MENU, self.action)
             self.action = None
-        for a in (self.conectar_action, self.pagina_action, self.sobre_action):
+        for a in (self.conectar_action, self.pagina_action, self.atualizar_action, self.sobre_action):
             if a:
                 self.iface.removePluginMenu(MENU, a)
-        self.conectar_action = self.pagina_action = self.sobre_action = None
+        self.conectar_action = self.pagina_action = self.atualizar_action = self.sobre_action = None
         if self._toolbar_action:
             self.iface.pluginToolBar().removeAction(self._toolbar_action)
             self._toolbar_action = None
@@ -407,6 +426,7 @@ class ClaudiaQgisPlugin:
         self.thread.started.connect(self.worker.run)
         self.worker.comando_recebido.connect(self._executar_comando, _QUEUED)
         self.worker.estado_mudou.connect(self._estado_mudou, _QUEUED)
+        self.worker.versao_disponivel.connect(self._oferecer_atualizacao, _QUEUED)
         self.thread.start()
 
         # nome do projeto aberto acompanha o poll (aparece na página da comunidade)
@@ -462,6 +482,62 @@ class ClaudiaQgisPlugin:
         worker.entregar_resultado(comando.get("id"), envelope)
         n = self.executor.comunidade["comandos_executados"]
         self._mostrar_estado("conectado", f"{n} comando(s) · último: {comando.get('type')}")
+
+    # ------------------------------------------------------------ atualização
+    def _oferecer_atualizacao(self, info):
+        """Barra 'Versão X disponível — Atualizar agora' (uma vez por versão)."""
+        versao = str(info.get("versao") or "")
+        if not versao or not info.get("zip_url") or self._versao_oferecida == versao or self._atualizando:
+            return
+        self._versao_oferecida = versao
+        try:
+            barra = self.iface.messageBar()
+            w = barra.createMessage(LOG_TAG, f"Versão {versao} do plugin disponível (você está na {plugin_version()}).")
+            botao = QPushButton("Atualizar agora")
+            botao.clicked.connect(functools.partial(self._atualizar, dict(info)))
+            w.layout().addWidget(botao)
+            barra.pushWidget(w, MSG_INFO)
+        except Exception as e:  # sem barra (headless) — fica no log
+            QgsMessageLog.logMessage(f"Versão {versao} disponível em {info.get('url') or RELEASES_URL} ({e})", LOG_TAG, MSG_INFO)
+
+    def _verificar_atualizacao(self):
+        """Menu 'Atualizar o plugin…': consulta a comunidade agora."""
+        try:
+            info = updater.consultar_ultima(_base_url())
+        except Exception as e:
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushWarning(LOG_TAG, f"Não consegui consultar a versão mais recente: {e}")
+            return
+        versao = str(info.get("versao") or "")
+        if versao and info.get("zip_url") and versao_tupla(versao) > versao_tupla(plugin_version()):
+            self._versao_oferecida = None
+            self._oferecer_atualizacao(info)
+        else:
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushInfo(LOG_TAG, f"Você já está na versão mais recente ({plugin_version()}).")
+
+    def _atualizar(self, info):
+        """Baixa o ZIP da release, valida, desconecta e troca o plugin (recarrega sozinho)."""
+        if self._atualizando:
+            return
+        self._atualizando = True
+        versao = str(info.get("versao") or "?")
+        try:
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushInfo(LOG_TAG, f"Baixando a versão {versao}…")
+            caminho = updater.baixar_zip(str(info["zip_url"]))
+            updater.validar_zip(caminho)
+        except Exception as e:
+            self._atualizando = False
+            QgsMessageLog.logMessage(f"Atualização falhou: {e!r}", LOG_TAG, MSG_CRITICAL)
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushCritical(LOG_TAG, f"Não consegui baixar a atualização: {e}. Baixe em {info.get('url') or RELEASES_URL}.")
+            return
+        # a versão nova volta conectada com o mesmo token
+        _set_cfg("reconectar_apos_update", bool(_cfg("token", "")))
+        self._desconectar()
+        # fora deste objeto: o unloadPlugin vai descarregar o plugin atual
+        QTimer.singleShot(0, functools.partial(updater.instalar_e_recarregar_seguro, caminho, self.iface))
 
     def _estado_mudou(self, estado, detalhe):
         self._estado, self._detalhe = estado, detalhe
