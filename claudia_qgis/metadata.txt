@@ -1,0 +1,52 @@
+[general]
+name=ClaudIA QGIS
+qgisMinimumVersion=3.28
+qgisMaximumVersion=4.99
+description=Sua IA (Claude, ChatGPT…) operando o QGIS pela comunidade agrônomo10X — Let your AI assistant operate QGIS through the agrônomo10X community
+about=ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
+    agrônomo10X (OagronomIA). A sua IA — Claude, ChatGPT ou qualquer cliente
+    MCP — recebe mais de 100 ferramentas para enxergar e operar o seu projeto:
+    listar e adicionar camadas, ler atributos, rodar algoritmos do Processing,
+    aplicar estilos, renderizar o mapa, montar layouts de impressão e muito
+    mais. Sem instalar Python, sem abrir portas: o plugin busca os comandos na
+    comunidade por HTTPS e devolve os resultados.
+
+    É preciso ter conta na comunidade agrônomo10X com a solução ClaudIA QGIS
+    liberada: https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis
+
+    O que o plugin envia à comunidade: a versão do QGIS, o nome do projeto
+    aberto e o resultado dos comandos que a SUA IA pedir. Nada sai sem um
+    comando seu; o token pode ser revogado na sua página a qualquer momento.
+
+    ---
+
+    ClaudIA QGIS connects the QGIS running on your computer to the agrônomo10X
+    community (OagronomIA). Your AI assistant — Claude, ChatGPT or any MCP
+    client — gets 100+ tools to inspect and operate your project: layers,
+    attributes, Processing algorithms, styling, map rendering, print layouts
+    and more. No Python setup, no open ports: the plugin long-polls the
+    community over HTTPS and posts the results back. Requires an agrônomo10X
+    community account with ClaudIA QGIS enabled.
+
+    Free software (GPLv2+). Derived from "QGIS MCP" by Nicolas Karasiak
+    (https://github.com/nkarasiak/qgis-mcp, GPLv2+): the command handlers that
+    run inside QGIS are his work; ClaudIA QGIS replaces the local socket
+    server with the community connection.
+
+version=0.1.0
+author=OagronomIA — comunidade agrônomo10X
+email=guilherme@iaparaagronomos.com.br
+tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
+homepage=https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis
+tracker=https://github.com/guilherme-iaparaagronomos/claudia-qgis/issues
+repository=https://github.com/guilherme-iaparaagronomos/claudia-qgis
+license=GPLv2+
+category=Plugins
+icon=icons/icon.png
+experimental=True
+deprecated=False
+hasProcessingProvider=no
+changelog=0.1.0 : primeira versão — conexão com a comunidade agrônomo10X por
+    long-poll HTTPS (token do plugin gerado na página da comunidade), 120
+    comandos herdados do QGIS MCP 0.14.0 de Nicolas Karasiak, interface em
+    português, sem servidor local nem configuração de cliente MCP.
