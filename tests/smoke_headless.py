@@ -136,7 +136,9 @@ if token and base:
         worker.entregar_resultado(comando.get("id"), env)
 
     def estado(e, d):
-        print("  estado:", e, "-", d)
+        # o plugin faz o mesmo em _estado_mudou: é o que `diagnose` reporta
+        ex.comunidade.update({"estado": e, "detalhe": d, "conectado": e == "conectado", "base_url": base})
+        print("  estado:", e, "-", d, flush=True)
 
     worker.comando_recebido.connect(executar)
     worker.estado_mudou.connect(estado)
