@@ -177,6 +177,7 @@ class ClaudiaQgisPlugin:
         self._detalhe = ""
         self._timer_info = None
         self._avisou_conexao = False
+        self._avisou_rede = False
 
     # --------------------------------------------------------------- ícones
     def _icone_base(self):
@@ -399,6 +400,7 @@ class ClaudiaQgisPlugin:
             self.action.setChecked(False)
         self._estado, self._detalhe = "parado", ""
         self._avisou_conexao = False
+        self._avisou_rede = False
 
     def _atualizar_info(self, *_args):
         if self.worker:
@@ -435,6 +437,16 @@ class ClaudiaQgisPlugin:
             self.action.setIcon(self._icone_com_ponto("#F9A825"))
             self.action.setToolTip(f"ClaudIA QGIS — sem conexão: {detalhe}")
             QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_WARNING)
+            # Uma vez por tentativa de conexão: só no log ninguém vê (13/09 —
+            # o plugin apontava para o endereço errado e parecia "conectado").
+            if not self._avisou_rede:
+                self._avisou_rede = True
+                with contextlib.suppress(Exception):
+                    self.iface.messageBar().pushWarning(
+                        LOG_TAG,
+                        f"Não consegui falar com a comunidade ({detalhe}). Vou continuar tentando; "
+                        "confira o endereço em Conectar à comunidade… → Avançado.",
+                    )
         elif estado == "token_invalido":
             self.action.setIcon(self._icone_com_ponto("#D32F2F"))
             self.action.setToolTip("ClaudIA QGIS — token recusado. Gere outro na comunidade.")
