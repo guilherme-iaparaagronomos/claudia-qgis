@@ -33,7 +33,6 @@ from .compat import (
     MSG_INFO,
     MSG_WARNING,
     PAINTER_ANTIALIAS,
-    TOOLBUTTON_ICON_ONLY,
     TOOLBUTTON_MENU_POPUP,
 )
 from .constants import (
@@ -57,6 +56,17 @@ _ROLE_ACCEPT = getattr(getattr(QDialogButtonBox, "ButtonRole", QDialogButtonBox)
 _ROLE_REJECT = getattr(getattr(QDialogButtonBox, "ButtonRole", QDialogButtonBox), "RejectRole")
 _QUEUED = getattr(getattr(Qt, "ConnectionType", Qt), "QueuedConnection")
 _ALIGN_RIGHT = getattr(getattr(Qt, "AlignmentFlag", Qt), "AlignRight")
+_TEXT_BESIDE_ICON = getattr(getattr(Qt, "ToolButtonStyle", Qt), "ToolButtonTextBesideIcon")
+
+# Estado da conexão → (cor, rótulo na barra, texto da barra de status, negrito)
+ESTADOS = {
+    "parado": ("#9E9E9E", "ClaudIA QGIS", "desconectado — clique no botão da ClaudIA para conectar", False),
+    "conectando": ("#F9A825", "ClaudIA · conectando…", "conectando à comunidade…", False),
+    "conectado": ("#52C937", "ClaudIA · CONECTADO", "conectado à comunidade — a sua IA já pode operar este QGIS", True),
+    "sem_rede": ("#F9A825", "ClaudIA · sem conexão", "sem conexão com a comunidade (tentando de novo)", False),
+    "token_invalido": ("#D32F2F", "ClaudIA · token recusado", "token recusado — gere outro na comunidade", True),
+}
+_COR_TEXTO = {"#52C937": "#1B7F2A", "#F9A825": "#8A5A00", "#D32F2F": "#B71C1C", "#9E9E9E": "#616161"}
 
 
 def _cfg(chave, padrao=None, tipo=None):
@@ -172,6 +182,7 @@ class ClaudiaQgisPlugin:
         self.pagina_action = None
         self.sobre_action = None
         self.tool_button = None
+        self.status_label = None
         self._toolbar_action = None
         self._estado = "parado"
         self._detalhe = ""
@@ -183,20 +194,45 @@ class ClaudiaQgisPlugin:
     def _icone_base(self):
         return QIcon(os.path.join(os.path.dirname(__file__), "icons", "icon.png"))
 
-    def _icone_com_ponto(self, cor):
+    def _icone_estado(self, cor):
+        """Ícone da ClaudIA com ANEL na cor do estado e um ponto no canto."""
         pixmap = self._icone_base().pixmap(QSize(64, 64))
         tamanho = pixmap.width()
-        d = int(tamanho * 0.36)
-        x, y = tamanho - d - 1, tamanho - d - 1
         painter = QPainter(pixmap)
         painter.setRenderHint(PAINTER_ANTIALIAS)
+        anel = QPen(QColor(cor))
+        anel.setWidth(max(4, tamanho // 12))
+        painter.setPen(anel)
+        painter.setBrush(QColor(0, 0, 0, 0))
+        m = anel.width() // 2 + 1
+        painter.drawEllipse(m, m, tamanho - 2 * m, tamanho - 2 * m)
+        d = int(tamanho * 0.34)
         painter.setBrush(QColor(cor))
-        caneta = QPen(QColor("white"))
-        caneta.setWidth(max(2, tamanho // 24))
-        painter.setPen(caneta)
-        painter.drawEllipse(x, y, d, d)
+        borda = QPen(QColor("white"))
+        borda.setWidth(max(2, tamanho // 24))
+        painter.setPen(borda)
+        painter.drawEllipse(tamanho - d - 1, tamanho - d - 1, d, d)
         painter.end()
         return QIcon(pixmap)
+
+    def _mostrar_estado(self, estado, detalhe=""):
+        """Um lugar só para refletir o estado: ícone, rótulo, cor, tooltip e barra de status."""
+        cor, rotulo, texto, negrito = ESTADOS.get(estado, ESTADOS["parado"])
+        if self.action:
+            self.action.setIcon(self._icone_base() if estado == "parado" else self._icone_estado(cor))
+            self.action.setText(rotulo)
+            self.action.setToolTip(f"ClaudIA QGIS — {texto}" + (f" · {detalhe}" if detalhe else ""))
+        if self.tool_button:
+            peso = "bold" if negrito else "normal"
+            self.tool_button.setStyleSheet(
+                f"QToolButton {{ color: {_COR_TEXTO.get(cor, cor)}; font-weight: {peso}; padding: 2px 6px; }}"
+            )
+        if self.status_label:
+            self.status_label.setText(
+                f'<span style="color:{cor}; font-size:14px;">●</span> '
+                f'<b style="color:{_COR_TEXTO.get(cor, cor)};">ClaudIA QGIS</b>: {texto}'
+                + (f" <span style='color:#757575'>· {detalhe}</span>" if detalhe else "")
+            )
 
     # ------------------------------------------------------------------ gui
     def initGui(self):
@@ -224,8 +260,15 @@ class ClaudiaQgisPlugin:
         self.tool_button.setDefaultAction(self.action)
         self.tool_button.setMenu(menu)
         self.tool_button.setPopupMode(TOOLBUTTON_MENU_POPUP)
-        self.tool_button.setToolButtonStyle(TOOLBUTTON_ICON_ONLY)
+        self.tool_button.setToolButtonStyle(_TEXT_BESIDE_ICON)
         self._toolbar_action = toolbar.addWidget(self.tool_button)
+
+        # indicador permanente no rodapé do QGIS (o ícone sozinho era discreto demais — fundador, 13/09)
+        self.status_label = QLabel()
+        self.status_label.setContentsMargins(6, 0, 6, 0)
+        with contextlib.suppress(Exception):
+            self.iface.mainWindow().statusBar().addPermanentWidget(self.status_label)
+        self._mostrar_estado("parado")
 
         self.iface.addPluginToMenu(MENU, self.action)
         self.iface.addPluginToMenu(MENU, self.conectar_action)
@@ -256,6 +299,11 @@ class ClaudiaQgisPlugin:
         if self._toolbar_action:
             self.iface.pluginToolBar().removeAction(self._toolbar_action)
             self._toolbar_action = None
+        if self.status_label:
+            with contextlib.suppress(Exception):
+                self.iface.mainWindow().statusBar().removeWidget(self.status_label)
+            self.status_label.deleteLater()
+            self.status_label = None
 
     # ------------------------------------------------------------- diálogos
     def _boas_vindas(self):
@@ -372,8 +420,7 @@ class ClaudiaQgisPlugin:
             projeto.projectSaved.connect(self._atualizar_info)
             projeto.cleared.connect(self._atualizar_info)
 
-        self.action.setIcon(self._icone_com_ponto("#F9A825"))
-        self.action.setToolTip(f"ClaudIA QGIS — conectando a {base}…")
+        self._mostrar_estado("conectando", base)
         QgsMessageLog.logMessage(f"Conectando à comunidade em {base}", LOG_TAG, MSG_INFO)
 
     def _desconectar(self):
@@ -395,9 +442,8 @@ class ClaudiaQgisPlugin:
             self.executor.desligar_log()
             self.executor.comunidade.update({"conectado": False, "estado": "parado"})
         if self.action:
-            self.action.setIcon(self._icone_base())
-            self.action.setToolTip("ClaudIA QGIS — clique para conectar à comunidade")
             self.action.setChecked(False)
+        self._mostrar_estado("parado")
         self._estado, self._detalhe = "parado", ""
         self._avisou_conexao = False
         self._avisou_rede = False
@@ -415,8 +461,7 @@ class ClaudiaQgisPlugin:
         envelope = self.executor.executar({"type": comando.get("type"), "params": comando.get("params") or {}})
         worker.entregar_resultado(comando.get("id"), envelope)
         n = self.executor.comunidade["comandos_executados"]
-        if self.action:
-            self.action.setToolTip(f"ClaudIA QGIS — conectado · {n} comando(s) · último: {comando.get('type')}")
+        self._mostrar_estado("conectado", f"{n} comando(s) · último: {comando.get('type')}")
 
     def _estado_mudou(self, estado, detalhe):
         self._estado, self._detalhe = estado, detalhe
@@ -425,8 +470,7 @@ class ClaudiaQgisPlugin:
         if not self.action:
             return
         if estado == "conectado":
-            self.action.setIcon(self._icone_com_ponto("#52C937"))
-            self.action.setToolTip("ClaudIA QGIS — conectado à comunidade · clique para desconectar")
+            self._mostrar_estado("conectado")
             if not self._avisou_conexao:
                 self._avisou_conexao = True
                 with contextlib.suppress(Exception):
@@ -434,8 +478,7 @@ class ClaudiaQgisPlugin:
                         LOG_TAG, "Conectado à comunidade. Peça à sua IA: “lista as camadas do meu projeto”."
                     )
         elif estado == "sem_rede":
-            self.action.setIcon(self._icone_com_ponto("#F9A825"))
-            self.action.setToolTip(f"ClaudIA QGIS — sem conexão: {detalhe}")
+            self._mostrar_estado("sem_rede", detalhe)
             QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_WARNING)
             # Uma vez por tentativa de conexão: só no log ninguém vê (13/09 —
             # o plugin apontava para o endereço errado e parecia "conectado").
@@ -448,8 +491,7 @@ class ClaudiaQgisPlugin:
                         "confira o endereço em Conectar à comunidade… → Avançado.",
                     )
         elif estado == "token_invalido":
-            self.action.setIcon(self._icone_com_ponto("#D32F2F"))
-            self.action.setToolTip("ClaudIA QGIS — token recusado. Gere outro na comunidade.")
+            self._mostrar_estado("token_invalido")
             QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_CRITICAL)
             with contextlib.suppress(Exception):
                 self.iface.messageBar().pushCritical(
@@ -457,6 +499,7 @@ class ClaudiaQgisPlugin:
                     "Token recusado pela comunidade. Gere um token novo na sua página e cole em Conectar à comunidade…",
                 )
             self._desconectar()
+            self._mostrar_estado("token_invalido")
 
 
 def classFactory(iface):
