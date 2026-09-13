@@ -84,8 +84,26 @@ def _set_cfg(chave, valor):
     QgsSettings().setValue(f"{SETTINGS_PREFIX}/{chave}", valor)
 
 
+def _normalizar_base(texto):
+    """Qualquer URL do site vira só esquema + host[:porta].
+
+    O fundador colou a URL da PÁGINA do conector no campo (13/09) e o plugin
+    passou a chamar …/solucoes/mcp/claudia-qgis/api/qgis/poll. Caminho,
+    query e barra final saem; sem esquema assume https.
+    """
+    from urllib.parse import urlsplit
+
+    t = (texto or "").strip()
+    if not t:
+        return DEFAULT_BASE_URL
+    if not t.startswith(("https://", "http://")):
+        t = "https://" + t
+    p = urlsplit(t)
+    return f"{p.scheme}://{p.netloc}" if p.netloc else DEFAULT_BASE_URL
+
+
 def _base_url():
-    return (_cfg("base_url", DEFAULT_BASE_URL) or DEFAULT_BASE_URL).rstrip("/")
+    return _normalizar_base(_cfg("base_url", DEFAULT_BASE_URL) or DEFAULT_BASE_URL)
 
 
 def _pagina_conector():
@@ -164,9 +182,8 @@ class ConectarDialog(QDialog):
             return
         base = DEFAULT_BASE_URL
         if self._avancado.isChecked():
-            base = (self.base_url.text().strip() or DEFAULT_BASE_URL).rstrip("/")
-            if not base.startswith(("https://", "http://")):
-                base = "https://" + base
+            base = _normalizar_base(self.base_url.text())
+            self.base_url.setText(base)
         _set_cfg("token", token)
         _set_cfg("base_url", base)
         _set_cfg("autostart", self.autostart.isChecked())

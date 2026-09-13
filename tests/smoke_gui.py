@@ -20,7 +20,13 @@ from qgis.PyQt.QtWidgets import QMainWindow, QMenu, QToolBar  # noqa: E402
 app = QgsApplication([], True)
 app.initQgis()
 
-from claudia_qgis.plugin import ESTADOS, ClaudiaQgisPlugin  # noqa: E402
+from claudia_qgis.plugin import ESTADOS, ClaudiaQgisPlugin, _normalizar_base  # noqa: E402
+
+assert _normalizar_base("https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis") == "https://comunidade.agronomos.ia.br"
+assert _normalizar_base("comunidade.agronomos.ia.br/") == "https://comunidade.agronomos.ia.br"
+assert _normalizar_base("http://dev.agronomos.ia.br:3000/x?y=1") == "http://dev.agronomos.ia.br:3000"
+assert _normalizar_base("") == "https://comunidade.agronomos.ia.br"
+print("  ok  _normalizar_base reduz URL de página ao domínio")
 
 janela = QMainWindow()
 barra = QToolBar(janela)
