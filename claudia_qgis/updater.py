@@ -17,11 +17,13 @@ Modificado por OagronomIA (2026-09-13) a partir de nkarasiak/qgis-mcp — GPLv2+
 from __future__ import annotations
 
 import configparser
+import contextlib
+import http.client
 import os
 import shutil
 import ssl
 import tempfile
-import urllib.request
+import urllib.parse
 import zipfile
 
 from .constants import ENDPOINT_PLUGIN, LOG_TAG, PLUGIN_DIR, user_agent
@@ -30,17 +32,55 @@ NOME_PACOTE = os.path.basename(PLUGIN_DIR)  # claudia_qgis
 MAX_ZIP_BYTES = 20 * 1024 * 1024
 
 
+MAX_REDIRECIONAMENTOS = 5
+
+
+def _abrir(url: str, headers: dict, timeout: int, *, so_https: bool) -> tuple[http.client.HTTPConnection, http.client.HTTPResponse]:
+    """GET por ``http.client`` — só ``http``/``https`` (nada de ``file:`` ou esquemas
+    customizados), seguindo até 5 redirecionamentos (o ZIP da release do GitHub
+    redireciona para o CDN). Devolve (conexão, resposta); quem chama fecha a conexão."""
+    for _ in range(MAX_REDIRECIONAMENTOS + 1):
+        u = urllib.parse.urlsplit(url)
+        if u.scheme == "https":
+            conn = http.client.HTTPSConnection(u.hostname, u.port, timeout=timeout, context=_ssl())
+        elif u.scheme == "http" and not so_https:
+            conn = http.client.HTTPConnection(u.hostname, u.port, timeout=timeout)
+        else:
+            raise ValueError(f"esquema não permitido na atualização: {u.scheme or '(vazio)'}")
+        caminho = (u.path or "/") + (f"?{u.query}" if u.query else "")
+        conn.request("GET", caminho, headers={**headers, "Host": u.netloc})
+        resp = conn.getresponse()
+        if resp.status in (301, 302, 303, 307, 308):
+            destino = resp.getheader("Location")
+            resp.read()
+            conn.close()
+            if not destino:
+                raise ValueError("redirecionamento sem destino")
+            url = urllib.parse.urljoin(url, destino)
+            continue
+        if resp.status != 200:
+            resp.read()
+            conn.close()
+            raise ValueError(f"HTTP {resp.status} ao buscar {u.netloc}{u.path}")
+        return conn, resp
+    raise ValueError("redirecionamentos demais")
+
+
 def consultar_ultima(base_url: str, timeout: int = 10) -> dict:
     """GET {base}/api/qgis/plugin → {"versao", "zip_url", "url", "minima"}."""
     import json
 
-    req = urllib.request.Request(
+    # http só para o dev local; em produção o endereço da comunidade é https
+    conn, resp = _abrir(
         base_url.rstrip("/") + ENDPOINT_PLUGIN,
-        headers={"User-Agent": user_agent(), "Accept": "application/json"},
+        {"User-Agent": user_agent(), "Accept": "application/json"},
+        timeout,
+        so_https=False,
     )
-    ctx = _ssl() if base_url.startswith("https://") else None
-    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
-        return json.loads(r.read().decode("utf-8"))
+    try:
+        return json.loads(resp.read().decode("utf-8"))
+    finally:
+        conn.close()
 
 
 def instalar_e_recarregar_seguro(caminho_zip: str, iface=None) -> None:
@@ -48,7 +88,9 @@ def instalar_e_recarregar_seguro(caminho_zip: str, iface=None) -> None:
     try:
         versao = instalar_e_recarregar(caminho_zip)
     except Exception as e:
-        try:
+        # avisar é o melhor esforço: se o próprio QGIS não aceitar o log/barra
+        # (fechando, sem iface), não há mais a quem avisar
+        with contextlib.suppress(Exception):
             from qgis.core import QgsMessageLog
 
             from .compat import MSG_CRITICAL
@@ -56,27 +98,22 @@ def instalar_e_recarregar_seguro(caminho_zip: str, iface=None) -> None:
             QgsMessageLog.logMessage(f"Atualização falhou: {e!r}", LOG_TAG, MSG_CRITICAL)
             if iface is not None:
                 iface.messageBar().pushCritical(LOG_TAG, f"A atualização falhou ({e}). Instale pelo ZIP em Complementos → Instalar a partir de um ZIP.")
-        except Exception:
-            pass
         return
-    try:
+    with contextlib.suppress(Exception):
         from qgis.core import QgsMessageLog
 
         from .compat import MSG_INFO
 
         QgsMessageLog.logMessage(f"Plugin atualizado para {versao}", LOG_TAG, MSG_INFO)
-    except Exception:
-        pass
 
 
 def _ssl():
     ctx = ssl.create_default_context()
-    try:
+    # o Python do QGIS no Windows traz certifi; sem ele, a loja do sistema basta
+    with contextlib.suppress(ImportError, OSError, ssl.SSLError):
         import certifi
 
         ctx.load_verify_locations(certifi.where())
-    except Exception:
-        pass
     return ctx
 
 
@@ -84,18 +121,25 @@ def baixar_zip(url: str, timeout: int = 60) -> str:
     """Baixa o ZIP para um arquivo temporário e devolve o caminho."""
     if not url.startswith("https://"):
         raise ValueError("só baixo atualização por https")
-    req = urllib.request.Request(url, headers={"User-Agent": user_agent(), "Accept": "application/octet-stream"})
+    conn, resp = _abrir(url, {"User-Agent": user_agent(), "Accept": "application/octet-stream"}, timeout, so_https=True)
     fd, destino = tempfile.mkstemp(prefix="claudia_qgis-", suffix=".zip")
-    with os.fdopen(fd, "wb") as f, urllib.request.urlopen(req, timeout=timeout, context=_ssl()) as r:
-        total = 0
-        while True:
-            bloco = r.read(65536)
-            if not bloco:
-                break
-            total += len(bloco)
-            if total > MAX_ZIP_BYTES:
-                raise ValueError("ZIP maior que o esperado — abortei")
-            f.write(bloco)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            total = 0
+            while True:
+                bloco = resp.read(65536)
+                if not bloco:
+                    break
+                total += len(bloco)
+                if total > MAX_ZIP_BYTES:
+                    raise ValueError("ZIP maior que o esperado — abortei")
+                f.write(bloco)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.remove(destino)
+        raise
+    finally:
+        conn.close()
     return destino
 
 

@@ -21,6 +21,7 @@ Modificado por OagronomIA (2026-09-13) a partir de nkarasiak/qgis-mcp — GPLv2+
 
 from __future__ import annotations
 
+import contextlib
 import http.client
 import json
 import queue
@@ -55,12 +56,11 @@ class ErroRede(Exception):
 
 def _contexto_ssl():
     ctx = ssl.create_default_context()
-    try:  # o Python do QGIS no Windows traz certifi; a loja do sistema costuma bastar
+    # o Python do QGIS no Windows traz certifi; sem ele, a loja do sistema basta
+    with contextlib.suppress(ImportError, OSError, ssl.SSLError):
         import certifi
 
         ctx.load_verify_locations(certifi.where())
-    except Exception:
-        pass
     return ctx
 
 
@@ -102,10 +102,9 @@ class ComunidadeWorker(QObject):
         self._resultados.put(None)
         conn = self._conn
         if conn is not None:
-            try:
+            # fechar um socket já morto não é erro: é o efeito desejado
+            with contextlib.suppress(OSError, http.client.HTTPException):
                 conn.close()
-            except Exception:
-                pass
 
     # ---------------------------------------------------------- thread do worker
     def run(self):
@@ -225,10 +224,8 @@ class ComunidadeWorker(QObject):
             raise ErroRede(str(e) or type(e).__name__) from None
         finally:
             self._conn = None
-            try:
+            with contextlib.suppress(OSError, http.client.HTTPException):
                 conn.close()
-            except Exception:
-                pass
 
     def _checar_versao(self, ultima):
         """Emite `versao_disponivel` UMA vez por versão anunciada maior que a instalada."""
