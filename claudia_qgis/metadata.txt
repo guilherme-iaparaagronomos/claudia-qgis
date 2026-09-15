@@ -33,11 +33,11 @@ about=ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
     run inside QGIS are his work; ClaudIA QGIS replaces the local socket
     server with the community connection.
 
-version=0.2.1
+version=0.2.2
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
-homepage=https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis
+homepage=https://github.com/guilherme-iaparaagronomos/claudia-qgis
 tracker=https://github.com/guilherme-iaparaagronomos/claudia-qgis/issues
 repository=https://github.com/guilherme-iaparaagronomos/claudia-qgis
 license=GPLv2+
@@ -46,7 +46,10 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.2.1 : o campo "Endereço da comunidade" aceita qualquer URL do
+changelog=0.2.2 : homepage do metadata aponta para o repositório público
+    (a página do conector na comunidade exige login; o revisor do portal
+    precisa de um link aberto). Sem mudança de código.
+    0.2.1 : o campo "Endereço da comunidade" aceita qualquer URL do
     site (inclusive a da página do conector) e guarda só o domínio.
     0.2.0 : atualização pelo próprio plugin — a comunidade anuncia a
     versão mais recente a cada busca de comandos; quando há versão nova,
