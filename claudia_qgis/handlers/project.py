@@ -47,7 +47,7 @@ class ProjectHandlers:
         if not path and not project.fileName():
             raise CommandError("No project path specified and no current project path")
 
-        save_path = path if path else project.fileName()
+        save_path = path or project.fileName()
         if project.write(save_path):
             QgsMessageLog.logMessage(f"Project saved: {save_path}", self.LOG_TAG, MSG_INFO)
             return {"saved": save_path}
@@ -85,7 +85,7 @@ class ProjectHandlers:
         scope = QgsExpressionContextUtils.projectScope(QgsProject.instance())
         variables = {}
         for name in scope.variableNames():
-            variables[name] = self._to_json_safe(scope.variable(name))
+            variables[name] = self._convert_attribute(scope.variable(name))
         return {"variables": variables}
 
     @command
