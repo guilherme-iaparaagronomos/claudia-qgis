@@ -24,9 +24,11 @@ from qgis.core import (
     QgsLayoutExporter,
     QgsMapLayer,
     QgsMessageLog,
+    QgsProcessingAlgorithm,
     QgsProcessingParameterDefinition,
     QgsProcessingParameterFile,
     QgsProcessingParameterNumber,
+    QgsRaster,
     QgsRasterBandStats,
     QgsSingleBandGrayRenderer,
     QgsUnitTypes,
@@ -85,9 +87,11 @@ MSG_CRITICAL = _enum((Qgis, "MessageLevel.Critical"), (Qgis, "Critical"))
 # ── Geometry types ───────────────────────────────────────────────────
 GEOM_POLYGON = _enum((Qgis, "GeometryType.Polygon"), (QgsWkbTypes, "PolygonGeometry"))
 GEOM_LINE = _enum((Qgis, "GeometryType.Line"), (QgsWkbTypes, "LineGeometry"))
+GEOM_UNKNOWN = _enum((Qgis, "GeometryType.Unknown"), (QgsWkbTypes, "UnknownGeometry"))
 
 # ── Raster stats ─────────────────────────────────────────────────────
 RASTER_STATS_ALL = _enum((Qgis, "RasterBandStatistic.All"), (QgsRasterBandStats, "All"))
+RASTER_ALPHA_BAND = _enum((Qgis, "RasterColorInterpretation.AlphaBand"), (QgsRaster, "AlphaBand"))
 
 # ── Layout export result ─────────────────────────────────────────────
 LAYOUT_SUCCESS = _enum((Qgis, "LayoutResult.Success"), (QgsLayoutExporter, "Success"))
@@ -96,6 +100,10 @@ LAYOUT_SUCCESS = _enum((Qgis, "LayoutResult.Success"), (QgsLayoutExporter, "Succ
 PROCESSING_OPTIONAL = _enum(
     (Qgis, "ProcessingParameterFlag.Optional"),
     (QgsProcessingParameterDefinition, "FlagOptional"),
+)
+PROC_ALG_NO_THREADING = _enum(
+    (Qgis, "ProcessingAlgorithmFlag.NoThreading"),
+    (QgsProcessingAlgorithm, "FlagNoThreading"),
 )
 
 # ── Aggregate functions ──────────────────────────────────────────────

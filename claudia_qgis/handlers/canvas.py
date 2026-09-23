@@ -50,17 +50,31 @@ class CanvasHandlers:
     def set_canvas_extent(self, xmin, ymin, xmax, ymax, crs=None, **kwargs):
         canvas = self.iface.mapCanvas()
         rect = QgsRectangle(xmin, ymin, xmax, ymax)
+        dst_crs = canvas.mapSettings().destinationCrs()
+        response = {}
 
         if crs:
             src_crs = QgsCoordinateReferenceSystem(crs)
-            dst_crs = canvas.mapSettings().destinationCrs()
+            # An invalid CRS makes an invalid transform, which returns the box
+            # unchanged: degrees were applied as map units without a word.
+            if not src_crs.isValid():
+                raise CommandError(f"Invalid CRS: {crs}")
             if src_crs != dst_crs:
                 transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
+                crossing = transform.transformBoundingBox(rect, handle180Crossover=True)
                 rect = transform.transformBoundingBox(rect)
+                if crossing.xMinimum() > crossing.xMaximum():
+                    # One canvas extent cannot wrap; it spans the long way round.
+                    response["warning"] = (
+                        "The box crosses the antimeridian; the canvas extent spans "
+                        "the full longitude range between its edges instead."
+                    )
 
         canvas.setExtent(rect)
         canvas.refresh()
-        return {"extent": [rect.xMinimum(), rect.yMinimum(), rect.xMaximum(), rect.yMaximum()]}
+        response["extent"] = [rect.xMinimum(), rect.yMinimum(), rect.xMaximum(), rect.yMaximum()]
+        response["crs"] = dst_crs.authid()
+        return response
 
     _RENDER_TIMEOUT = 55  # seconds (below MCP's 60s TIMEOUT_LONG)
 
@@ -133,7 +147,18 @@ class CanvasHandlers:
             buf.close()
             b64 = base64.b64encode(bytes(ba)).decode("utf-8")
 
-            return {"base64_data": b64, "mime_type": "image/png", "width": width, "height": height}
+            response = {
+                "base64_data": b64,
+                "mime_type": "image/png",
+                "width": width,
+                "height": height,
+            }
+            # A layer that failed to draw (broken WMS, moved file) leaves a blank
+            # area in an image that otherwise looks like a successful render.
+            errors = [f"{e.layerID}: {e.message}" for e in render.errors()]
+            if errors:
+                response["warnings"] = errors
+            return response
 
         except CommandError:
             raise  # the render timeout above - don't re-wrap a deliberate message
@@ -236,7 +261,9 @@ class CanvasHandlers:
             export_settings.dpi = dpi
             result = exporter.exportToImage(tmp, export_settings)
             if int(result) != int(LAYOUT_SUCCESS) or not os.path.exists(tmp):
-                raise CommandError(f"3D layout export failed (export code {int(result)})")
+                reason = exporter.errorMessage()
+                detail = f": {reason}" if reason else ""
+                raise CommandError(f"3D layout export failed (export code {int(result)}){detail}")
             with open(tmp, "rb") as fh:
                 data = fh.read()
         finally:
@@ -282,13 +309,19 @@ class CanvasHandlers:
 
         if bbox:
             rect = QgsRectangle(bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"])
-            transformed_rect = xform.transformBoundingBox(rect)
+            # Without the crossover handling a box spanning 180 deg came back
+            # spanning the other ~350 deg of longitude. With it, a crossing box
+            # comes back with xmin > xmax, which is flagged rather than hidden.
+            transformed_rect = xform.transformBoundingBox(rect, handle180Crossover=True)
             result["bbox"] = {
                 "xmin": transformed_rect.xMinimum(),
                 "ymin": transformed_rect.yMinimum(),
                 "xmax": transformed_rect.xMaximum(),
                 "ymax": transformed_rect.yMaximum(),
             }
+            result["crosses_antimeridian"] = (
+                transformed_rect.xMinimum() > transformed_rect.xMaximum()
+            )
 
         return result
 

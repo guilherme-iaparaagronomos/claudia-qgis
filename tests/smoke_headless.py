@@ -111,6 +111,48 @@ ok(f"list_processing_algorithms(buffer) → {len(algs)}") if any("buffer" in (a.
 r = run("execute_processing", algorithm="native:buffer", parameters={"INPUT": layer_id, "DISTANCE": 0.01, "OUTPUT": "TEMPORARY_OUTPUT"}, load_results=True)
 ok("execute_processing native:buffer com load_results") if r.get("status") == "success" and (r.get("result") or {}).get("loaded_layers") else furo("execute_processing", r)
 
+# ------------------------------------------- 0.15.0: checkpoints, sessão e job
+r = run("create_checkpoint", name="smoke")
+cp_id = (r.get("result") or {}).get("id") or (r.get("result") or {}).get("checkpoint_id")
+ok(f"create_checkpoint → {cp_id}") if r.get("status") == "success" and cp_id else furo("create_checkpoint", r)
+
+r = run("add_features", layer_id=layer_id, features=[{"attributes": {"nome": "T3", "area_ha": 5.0}, "geometry_wkt": "POLYGON((-47.2 -22.7,-47.1 -22.7,-47.1 -22.6,-47.2 -22.6,-47.2 -22.7))"}])
+ok("add_features (3ª feição, depois do checkpoint)") if r.get("status") == "success" else furo("add_features 3", r)
+
+r = run("list_checkpoints")
+cps = (r.get("result") or {}).get("checkpoints") or []
+ok(f"list_checkpoints → {len(cps)}") if any(c.get("id") == cp_id for c in cps) else furo("list_checkpoints", r)
+
+r = run("restore_checkpoint", checkpoint_id=cp_id)
+ok("restore_checkpoint") if r.get("status") == "success" else furo("restore_checkpoint", r)
+r = run("get_layers")
+restaurada = next((l for l in (r.get("result") or {}).get("layers", []) if l.get("name") == "talhoes_smoke"), None)
+layer_id = (restaurada or {}).get("id") or layer_id
+r = run("get_layer_features", layer_id=layer_id, limit=10)
+feats = (r.get("result") or {}).get("features", [])
+ok(f"restore_checkpoint voltou às {len(feats)} feições") if len(feats) == 2 else furo("restore_checkpoint (feições)", r)
+
+r = run("export_session")
+script = (r.get("result") or {}).get("script") or ""
+ok(f"export_session → script com {script.count('mcp(')} comando(s)") if "create_memory_layer" in script and 'plugins["claudia_qgis"].executor' in script else furo("export_session", r)
+
+r = run("start_processing_job", algorithm="native:buffer", parameters={"INPUT": layer_id, "DISTANCE": 0.02, "OUTPUT": "TEMPORARY_OUTPUT"}, load_results=True)
+job_id = (r.get("result") or {}).get("id") or (r.get("result") or {}).get("job_id")
+ok(f"start_processing_job → {job_id}") if r.get("status") == "success" and job_id else furo("start_processing_job", r)
+import time  # noqa: E402
+
+from qgis.PyQt.QtCore import QCoreApplication  # noqa: E402
+
+estado = None
+for _ in range(600):
+    QCoreApplication.processEvents()
+    time.sleep(0.05)
+    r = run("get_processing_job", job_id=job_id)
+    estado = (r.get("result") or {}).get("state")
+    if estado in ("succeeded", "failed", "cancelled"):
+        break
+ok(f"get_processing_job → {estado} com camada carregada") if estado == "succeeded" and (r.get("result") or {}).get("loaded_layers") else furo("get_processing_job", r)
+
 # ------------------------------------------------------------ comunidade
 token = os.environ.get("CLAUDIA_QGIS_TOKEN")
 base = os.environ.get("CLAUDIA_QGIS_URL")

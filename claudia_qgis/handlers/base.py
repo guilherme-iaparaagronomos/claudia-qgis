@@ -4,8 +4,15 @@ Mixed into ``QgisMCPServer`` last, so the domain mixins can rely on these
 without importing each other.
 """
 
-from qgis.core import QgsProject
-from qgis.PyQt.QtCore import QVariant
+from qgis.core import (
+    QgsCoordinateReferenceSystem,
+    QgsExpression,
+    QgsExpressionContext,
+    QgsExpressionContextUtils,
+    QgsProject,
+)
+from qgis.PyQt.QtCore import QTimer, QVariant
+from qgis.PyQt.QtWidgets import QApplication
 
 from ..compat import LAYER_RASTER, LAYER_VECTOR
 from ..errors import CommandError, LayerNotFound, WrongLayerType
@@ -13,6 +20,34 @@ from ..errors import CommandError, LayerNotFound, WrongLayerType
 
 class HandlerBase:
     """Layer lookup and value conversion used by every other mixin."""
+
+    @classmethod
+    def _read_project(cls, path):
+        """``QgsProject.read(path)``, never blocked on the unavailable-layers dialog.
+
+        When a layer's source is missing, QGIS opens its modal "Handle
+        Unavailable Layers" dialog inside read() and waits there for someone to
+        close it: over the socket, until the client gives up. The dialog is
+        dismissed as soon as it opens, which keeps those layers in the project
+        as unavailable (its "Keep Unavailable Layers"), and returns their names
+        so the caller can report them.
+        """
+        timer = QTimer()
+        timer.timeout.connect(cls._dismiss_unavailable_layers_dialog)
+        timer.start(50)  # fires in the dialog's own event loop
+        try:
+            project = QgsProject.instance()
+            if not project.read(path):
+                return False, []
+        finally:
+            timer.stop()
+        return True, [lyr.name() for lyr in project.mapLayers().values() if not lyr.isValid()]
+
+    @staticmethod
+    def _dismiss_unavailable_layers_dialog():
+        dialog = QApplication.activeModalWidget()
+        if dialog is not None and dialog.metaObject().className() == "QgsHandleBadLayers":
+            dialog.reject()
 
     @staticmethod
     def _layer(layer_id):
@@ -43,6 +78,53 @@ class HandlerBase:
         if layer.type() != LAYER_RASTER:
             raise WrongLayerType(f"Not a raster layer: {layer_id}")
         return layer
+
+    @staticmethod
+    def _parse_crs(crs):
+        """The CRS *crs* names, or raise - an invalid one would transform nothing."""
+        parsed = QgsCoordinateReferenceSystem(crs)
+        if not parsed.isValid():
+            raise CommandError(f"Invalid CRS: {crs}")
+        return parsed
+
+    @staticmethod
+    def _load_error(layer):
+        """Why *layer* is invalid, as a message suffix ("" when QGIS says nothing).
+
+        GDAL puts the reason on the layer, the virtual provider on its provider
+        ("Referenced table x in query not found!"); OGR on neither.
+        """
+        reasons = [layer.error().summary()]
+        provider = layer.dataProvider()
+        if provider is not None:
+            reasons.append(provider.error().summary())
+        reasons = [str(r).strip() for r in dict.fromkeys(reasons) if r and str(r).strip()]
+        return f": {'; '.join(reasons)}" if reasons else ""
+
+    @staticmethod
+    def _provider_error(provider):
+        """A data provider's recorded errors, as a message suffix.
+
+        The list accumulates across calls, so callers clear it before the write
+        whose failure this describes.
+        """
+        errors = [str(e) for e in provider.errors()] if provider.hasErrors() else []
+        return f": {'; '.join(errors)}" if errors else ""
+
+    @staticmethod
+    def _check_filter_expression(layer, expression):
+        """Raise unless *expression* parses and prepares against *layer*.
+
+        A filter that fails to parse, or names a field the layer lacks, matches
+        nothing without raising - so "0 features" reads as a real answer when
+        the filter never ran.
+        """
+        expr = QgsExpression(expression)
+        if expr.hasParserError():
+            raise CommandError(f"Expression parse error: {expr.parserErrorString()}")
+        context = QgsExpressionContext(QgsExpressionContextUtils.globalProjectLayerScopes(layer))
+        if not expr.prepare(context) or expr.hasEvalError():
+            raise CommandError(f"Expression error: {expr.evalErrorString()}")
 
     @staticmethod
     def _pick(mapping, key, label):

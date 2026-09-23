@@ -34,7 +34,7 @@ about=ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
     run inside QGIS are his work; ClaudIA QGIS replaces the local socket
     server with the community connection.
 
-version=0.3.0
+version=0.4.0
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -47,7 +47,17 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.3.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.14.1 —
+changelog=0.4.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.15.0 —
+    processamento em segundo plano (start_processing_job, get_processing_job,
+    cancel_processing_job: sem teto de tempo e sem travar o QGIS), checkpoints
+    do projeto (create_checkpoint, list_checkpoints, restore_checkpoint) e
+    export_session (script Python que refaz a sessão); resultado parcial ou
+    falha deixa de passar por sucesso (motivo do Processing, feições
+    descartadas em warnings); load_project não trava em camada indisponível;
+    crs em identify_features, sample_raster_values e add_features; ellipsoid
+    no Processing; QML inline em apply_style_qml. Inclui a 0.3.0 abaixo, que
+    não chegou ao portal.
+    0.3.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.14.1 —
     conversor de atributos com datas, correções em features, processing,
     connections e system, enums que não resolvem não derrubam o plugin
     (compat), e supportsQt6 declarado: as builds Qt6 do QGIS 3.x voltam a

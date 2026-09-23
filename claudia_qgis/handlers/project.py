@@ -13,6 +13,12 @@ from ..errors import CommandError
 from ..registry import command
 
 
+def _project_error(project):
+    """QGIS's reason for the last failed read/write, as a message suffix."""
+    error = project.error()
+    return f": {error}" if error else ""
+
+
 class ProjectHandlers:
     """The current project: files, CRS, variables, bookmarks, map themes."""
 
@@ -37,6 +43,8 @@ class ProjectHandlers:
                 "visible": layer.isValid() and self._is_visible(project, layer.id()),
             }
             info["layers"].append(layer_info)
+        # Only the first 10 are listed; layer_count has the real total.
+        info["layers_truncated"] = len(layers) > len(info["layers"])
 
         return info
 
@@ -52,23 +60,31 @@ class ProjectHandlers:
             QgsMessageLog.logMessage(f"Project saved: {save_path}", self.LOG_TAG, MSG_INFO)
             return {"saved": save_path}
         else:
-            raise CommandError(f"Failed to save project to {save_path}")
+            raise CommandError(f"Failed to save project to {save_path}{_project_error(project)}")
 
     @command
     def load_project(self, path, **kwargs):
         project = QgsProject.instance()
-        if project.read(path):
+        ok, unavailable = self._read_project(path)
+        if ok:
             self.iface.mapCanvas().refresh()
             QgsMessageLog.logMessage(f"Project loaded: {path}", self.LOG_TAG, MSG_INFO)
-            return {"loaded": path, "layer_count": len(project.mapLayers())}
+            response = {"loaded": path, "layer_count": len(project.mapLayers())}
+            if unavailable:
+                response["unavailable_layers"] = unavailable
+            return response
         else:
-            raise CommandError(f"Failed to load project from {path}")
+            raise CommandError(f"Failed to load project from {path}{_project_error(project)}")
 
     @command
     def create_new_project(self, path, **kwargs):
+        # File > New, not project.clear(): clear() skips the defaults File > New
+        # applies, leaving no CRS and ellipsoid NONE so every later measurement
+        # was planimetric. It also only ran for a saved project, so an unsaved
+        # one's layers carried over into the "empty" project.
+        if not self.iface.newProject(False):
+            raise CommandError("QGIS did not create a new project")
         project = QgsProject.instance()
-        if project.fileName():
-            project.clear()
         project.setFileName(path)
         self.iface.mapCanvas().refresh()
         if project.write():
@@ -76,9 +92,11 @@ class ProjectHandlers:
             return {
                 "created": f"Project created and saved successfully at: {path}",
                 "layer_count": len(project.mapLayers()),
+                "crs": project.crs().authid(),
+                "ellipsoid": project.ellipsoid(),
             }
         else:
-            raise CommandError(f"Failed to save project to {path}")
+            raise CommandError(f"Failed to save project to {path}{_project_error(project)}")
 
     @command
     def get_project_variables(self, **kwargs):
@@ -126,13 +144,19 @@ class ProjectHandlers:
         return {"bookmarks": bookmarks, "count": len(bookmarks)}
 
     @command
-    def add_bookmark(self, name, xmin, ymin, xmax, ymax, crs="EPSG:4326", group="", **kwargs):
-        """Add a spatial bookmark to the project."""
+    def add_bookmark(self, name, xmin, ymin, xmax, ymax, crs=None, group="", **kwargs):
+        """Add a spatial bookmark; the extent is in *crs*, else the project CRS."""
         from qgis.core import QgsBookmark, QgsReferencedRectangle
 
-        crs_obj = QgsCoordinateReferenceSystem(crs)
-        if not crs_obj.isValid():
-            raise CommandError(f"Invalid CRS: {crs}")
+        # EPSG:4326 used to be assumed, so projected coordinates without a crs
+        # made a bookmark off the globe. The project CRS is what every other
+        # extent tool defaults to.
+        if crs:
+            crs_obj = QgsCoordinateReferenceSystem(crs)
+            if not crs_obj.isValid():
+                raise CommandError(f"Invalid CRS: {crs}")
+        else:
+            crs_obj = QgsProject.instance().crs()
         extent = QgsReferencedRectangle(QgsRectangle(xmin, ymin, xmax, ymax), crs_obj)
         bookmark = QgsBookmark()
         bookmark.setName(name)
@@ -141,13 +165,16 @@ class ProjectHandlers:
         result = QgsProject.instance().bookmarkManager().addBookmark(bookmark)
         # addBookmark returns (id, success) tuple in QGIS 3.x+
         bookmark_id = result[0] if isinstance(result, (list, tuple)) else result
-        return {"ok": True, "id": bookmark_id, "name": name}
+        if isinstance(result, (list, tuple)) and not result[1]:
+            raise CommandError(f"QGIS did not add bookmark '{name}'")
+        return {"ok": True, "id": bookmark_id, "name": name, "crs": crs_obj.authid()}
 
     @command
     def remove_bookmark(self, bookmark_id, **kwargs):
         """Remove a spatial bookmark by ID."""
         bm = QgsProject.instance().bookmarkManager()
-        bm.removeBookmark(bookmark_id)
+        if not bm.removeBookmark(bookmark_id):
+            raise CommandError(f"Bookmark not found: {bookmark_id}")
         return {"ok": True, "id": bookmark_id}
 
     @command

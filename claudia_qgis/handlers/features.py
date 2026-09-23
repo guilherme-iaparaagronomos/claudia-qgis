@@ -7,11 +7,15 @@ took via ``buffered``.
 """
 
 import contextlib
+import re
 
 from qgis.core import (
+    QgsCoordinateTransform,
+    QgsCsException,
     QgsExpression,
     QgsExpressionContext,
     QgsExpressionContextUtils,
+    QgsExpressionNodeFunction,
     QgsFeature,
     QgsFeatureRequest,
     QgsField,
@@ -19,6 +23,7 @@ from qgis.core import (
     QgsPointXY,
     QgsProject,
     QgsRectangle,
+    QgsUnitTypes,
     QgsVectorLayer,
     QgsWkbTypes,
 )
@@ -33,6 +38,7 @@ from ..compat import (
     AGG_SUM,
     GEOM_LINE,
     GEOM_POLYGON,
+    GEOM_UNKNOWN,
     LAYER_VECTOR,
     QVAR_BOOL,
     QVAR_DATE,
@@ -44,6 +50,59 @@ from ..compat import (
 )
 from ..errors import CommandError
 from ..registry import command
+
+# Child accessors of each QgsExpressionNode kind; PyQGIS has no findNodes().
+_SINGLE_CHILDREN = (
+    "opLeft",
+    "opRight",
+    "operand",
+    "node",
+    "lowerBound",
+    "higherBound",
+    "container",
+    "index",
+    "elseExp",
+)
+
+
+def _function_calls(node):
+    """Every function node in the expression tree under *node*."""
+    if isinstance(node, QgsExpressionNodeFunction):
+        yield node
+    kids = [getattr(node, name)() for name in _SINGLE_CHILDREN if hasattr(node, name)]
+    for name in ("args", "list"):
+        node_list = getattr(node, name)() if hasattr(node, name) else None
+        if node_list is not None:
+            kids.extend(node_list.list())
+    for when_then in node.conditions() if hasattr(node, "conditions") else ():
+        kids.extend((when_then.whenExp(), when_then.thenExp()))
+    for kid in kids:
+        if kid is not None:
+            yield from _function_calls(kid)
+
+
+def _measures_geometry(expression):
+    """Whether *expression* calls area(), perimeter() or length() on a geometry.
+
+    length() is also the string length: length("name") counts characters, so
+    it only counts when its argument involves a geometry.
+    """
+    # The expression owns its node tree: keep it alive for the walk, or the
+    # nodes are freed under it (a native crash on QGIS 4).
+    parsed = QgsExpression(expression)
+    root = parsed.rootNode()
+    if root is None:
+        return False
+    functions = QgsExpression.Functions()
+    for call in _function_calls(root):
+        name = functions[call.fnIndex()].name()
+        if name in ("area", "perimeter"):
+            return True
+        if name == "length":
+            args = call.args().list() if call.args() is not None else []
+            if args and args[0].needsGeometry():
+                return True
+    return False
 
 
 class FeatureHandlers:
@@ -61,6 +120,7 @@ class FeatureHandlers:
         request = QgsFeatureRequest()
         matched = feature_count
         if expression:
+            self._check_filter_expression(layer, expression)
             request.setFilterExpression(expression)
             # featureCount() is the whole layer. Report what the expression
             # selects too, since that is what limit and offset page through.
@@ -68,6 +128,9 @@ class FeatureHandlers:
             counter.setNoAttributes()
             matched = sum(1 for _ in layer.getFeatures(counter))
 
+        # Decimals for point WKT: 3 is a millimetre in metres but ~55 m in
+        # degrees, so geographic coordinates keep 7 (~1 cm).
+        precision = 7 if layer.crs().isGeographic() else 3
         features = []
         skipped = 0
         for feature in layer.getFeatures(request):
@@ -89,8 +152,9 @@ class FeatureHandlers:
                 wkb_type_name = QgsWkbTypes.displayString(geom.wkbType())
 
                 if geom_type in [GEOM_POLYGON, GEOM_LINE]:
-                    simplified_geom = geom.simplify(0.001)
-                    points_count = len(simplified_geom.asWkt().split(","))
+                    # The real vertex count: simplify(0.001) was in layer units,
+                    # ~100 m in degrees and 1 mm in metres, so not comparable.
+                    points_count = geom.constGet().nCoordinates()
                     geom_obj = {
                         "type": geom_type,
                         "wkb_type": wkb_type_name,
@@ -106,7 +170,7 @@ class FeatureHandlers:
                     geom_obj = {
                         "type": geom_type,
                         "wkb_type": wkb_type_name,
-                        "wkt": geom.asWkt(precision=3),
+                        "wkt": geom.asWkt(precision=precision),
                     }
 
                 feature_obj["_geometry"] = geom_obj
@@ -121,6 +185,8 @@ class FeatureHandlers:
             "matched": matched,
             "fields": field_names,
             "features": features,
+            # What coordinates in _geometry are in.
+            "crs": layer.crs().authid(),
         }
 
     @command
@@ -164,9 +230,16 @@ class FeatureHandlers:
         return stats
 
     @command
-    def add_features(self, layer_id, features, **kwargs):
+    def add_features(self, layer_id, features, crs=None, **kwargs):
+        """Add features; geometry_wkt is in *crs* when given, else the layer CRS."""
         layer = self._get_vector_layer(layer_id)
         dp = layer.dataProvider()
+        to_layer = None
+        if crs:
+            src = self._parse_crs(crs)
+            if src != layer.crs():
+                to_layer = QgsCoordinateTransform(src, layer.crs(), QgsProject.instance())
+        warnings = []
         qgs_features = []
         for i, feat_data in enumerate(features):
             unknown = sorted(set(feat_data) - {"attributes", "geometry_wkt"})
@@ -190,6 +263,9 @@ class FeatureHandlers:
                 geom = QgsGeometry.fromWkt(wkt)
                 if geom.isNull():
                     raise CommandError(f"Feature {i}: invalid geometry_wkt: {wkt!r}")
+                warnings.extend(self._geometry_warnings(i, geom, layer))
+                if to_layer is not None:
+                    geom.transform(to_layer)
                 f.setGeometry(geom)
             qgs_features.append(f)
 
@@ -200,12 +276,39 @@ class FeatureHandlers:
                 raise CommandError("Failed to add features to the edit buffer")
             count = len(qgs_features)
         else:
+            dp.clearErrors()
             ok, added = dp.addFeatures(qgs_features)
             if not ok:
-                raise CommandError("Failed to add features")
+                raise CommandError(f"Failed to add features{self._provider_error(dp)}")
             count = len(added)
         layer.updateExtents()
-        return {"added": count, "buffered": layer.isEditable()}
+        response = {"added": count, "buffered": layer.isEditable()}
+        if warnings:
+            response["warnings"] = warnings
+        return response
+
+    @staticmethod
+    def _geometry_warnings(i, geom, layer):
+        """Refuse a geometry type the layer cannot hold; list what else is off.
+
+        The WKT used to be stored as given: a bowtie polygon (whose area is then
+        0) or 2D coordinates on a Z layer went in without a word.
+        """
+        # A generic GEOMETRY column (or GeometryCollection layer) holds any type.
+        if layer.geometryType() not in (GEOM_UNKNOWN, geom.type()):
+            raise CommandError(
+                f"Feature {i}: {QgsWkbTypes.geometryDisplayString(geom.type())} geometry "
+                f"on a {QgsWkbTypes.geometryDisplayString(layer.geometryType())} layer"
+            )
+        warnings = []
+        if not geom.isGeosValid():
+            warnings.append(
+                f"Feature {i}: invalid geometry (e.g. self-intersecting); areas and "
+                "overlays computed on it are unreliable"
+            )
+        if QgsWkbTypes.hasZ(layer.wkbType()) and not QgsWkbTypes.hasZ(geom.wkbType()):
+            warnings.append(f"Feature {i}: 2D geometry on a layer with Z; Z is not set")
+        return warnings
 
     @command
     def update_features(self, layer_id, updates, **kwargs):
@@ -246,8 +349,10 @@ class FeatureHandlers:
                                 f"{applied} of {len(attr_map)} features applied, "
                                 "rollback_edits to discard"
                             )
-            elif not dp.changeAttributeValues(attr_map):
-                raise CommandError("Failed to update features")
+            else:
+                dp.clearErrors()
+                if not dp.changeAttributeValues(attr_map):
+                    raise CommandError(f"Failed to update features{self._provider_error(dp)}")
         return {"updated": len(attr_map), "buffered": layer.isEditable()}
 
     @command
@@ -255,9 +360,13 @@ class FeatureHandlers:
         layer = self._get_vector_layer(layer_id)
         dp = layer.dataProvider()
 
+        if fids is not None and expression:
+            # fids used to win silently, deleting a set the caller did not filter.
+            raise CommandError("Pass fids or expression, not both")
         if fids is not None:
             target_fids = fids
         elif expression:
+            self._check_filter_expression(layer, expression)
             request = QgsFeatureRequest().setFilterExpression(expression)
             request.setNoAttributes()
             target_fids = [f.id() for f in layer.getFeatures(request)]
@@ -268,9 +377,10 @@ class FeatureHandlers:
         if layer.isEditable():
             ok = layer.deleteFeatures(target_fids)
         else:
+            dp.clearErrors()
             ok = dp.deleteFeatures(target_fids)
         if not ok:
-            raise CommandError("Failed to delete features")
+            raise CommandError(f"Failed to delete features{self._provider_error(dp)}")
         layer.updateExtents()
         return {
             "requested": len(target_fids),
@@ -395,8 +505,11 @@ class FeatureHandlers:
                             f"Failed to update geometry for fid {fid}; "
                             f"{applied} of {len(geom_map)} applied, rollback_edits to discard"
                         )
-            elif not layer.dataProvider().changeGeometryValues(geom_map):
-                raise CommandError("Failed to update geometries")
+            else:
+                dp = layer.dataProvider()
+                dp.clearErrors()
+                if not dp.changeGeometryValues(geom_map):
+                    raise CommandError(f"Failed to update geometries{self._provider_error(dp)}")
             layer.updateExtents()
             layer.triggerRepaint()
         return {"updated": len(geom_map), "buffered": layer.isEditable()}
@@ -408,6 +521,7 @@ class FeatureHandlers:
         if fids is not None:
             layer.selectByIds(fids)
         elif expression:
+            self._check_filter_expression(layer, expression)
             layer.selectByExpression(expression)
         else:
             raise CommandError("Either fids or expression must be provided")
@@ -441,14 +555,17 @@ class FeatureHandlers:
             "date": QVAR_DATE,
             "datetime": QVAR_DATETIME,
         }
-        v_type = type_map.get(field_type.lower(), QVAR_STRING)
+        # An unknown type used to become a string field without a word.
+        v_type = self._pick(type_map, field_type.lower(), "field_type")
         field = QgsField(field_name, v_type, field_type, length or 0, precision or 0)
 
-        if layer.dataProvider().addAttributes([field]):
+        dp = layer.dataProvider()
+        dp.clearErrors()
+        if dp.addAttributes([field]):
             layer.updateFields()
             return {"ok": True, "field_name": field_name}
         else:
-            raise CommandError(f"Failed to add field: {field_name}")
+            raise CommandError(f"Failed to add field: {field_name}{self._provider_error(dp)}")
 
     @command
     def delete_field(self, layer_id, field_name, **kwargs):
@@ -458,11 +575,13 @@ class FeatureHandlers:
         if idx < 0:
             raise CommandError(f"Field not found: {field_name}")
 
-        if layer.dataProvider().deleteAttributes([idx]):
+        dp = layer.dataProvider()
+        dp.clearErrors()
+        if dp.deleteAttributes([idx]):
             layer.updateFields()
             return {"ok": True, "field_name": field_name}
         else:
-            raise CommandError(f"Failed to delete field: {field_name}")
+            raise CommandError(f"Failed to delete field: {field_name}{self._provider_error(dp)}")
 
     @command
     def rename_field(self, layer_id, old_name, new_name, **kwargs):
@@ -472,11 +591,13 @@ class FeatureHandlers:
         if idx < 0:
             raise CommandError(f"Field not found: {old_name}")
 
-        if layer.dataProvider().renameAttributes({idx: new_name}):
+        dp = layer.dataProvider()
+        dp.clearErrors()
+        if dp.renameAttributes({idx: new_name}):
             layer.updateFields()
             return {"ok": True, "old_name": old_name, "new_name": new_name}
         else:
-            raise CommandError(f"Failed to rename field: {old_name}")
+            raise CommandError(f"Failed to rename field: {old_name}{self._provider_error(dp)}")
 
     @command
     def field_calculator(
@@ -491,6 +612,14 @@ class FeatureHandlers:
     ):
         """Add (if missing) and populate a field from a QGIS expression, in-place."""
         layer = self._get_vector_layer(layer_id)
+        # Everything that can refuse the call runs before the schema changes:
+        # a bad expression or an open session used to fail after the new
+        # field had been added, leaving it behind empty.
+        if layer.isEditable():
+            raise CommandError(
+                f"'{layer.name()}' has an open edit session; commit_edits or rollback_edits first"
+            )
+        self._check_filter_expression(layer, expression)
         type_map = {
             "string": QVAR_STRING,
             "int": QVAR_INT,
@@ -502,17 +631,16 @@ class FeatureHandlers:
         idx = layer.fields().indexOf(field_name)
         created = False
         if idx < 0:
-            v_type = type_map.get(field_type.lower(), QVAR_DOUBLE)
-            layer.dataProvider().addAttributes(
-                [QgsField(field_name, v_type, field_type, length, precision)]
-            )
+            v_type = self._pick(type_map, field_type.lower(), "field_type")
+            dp = layer.dataProvider()
+            dp.clearErrors()
+            if not dp.addAttributes([QgsField(field_name, v_type, field_type, length, precision)]):
+                raise CommandError(f"Failed to add field: {field_name}{self._provider_error(dp)}")
             layer.updateFields()
             idx = layer.fields().indexOf(field_name)
             created = True
 
         expr = QgsExpression(expression)
-        if expr.hasParserError():
-            raise CommandError(f"Expression parse error: {expr.parserErrorString()}")
         ctx = QgsExpressionContext()
         ctx.appendScopes(QgsExpressionContextUtils.globalProjectLayerScopes(layer))
         expr.prepare(ctx)
@@ -520,17 +648,52 @@ class FeatureHandlers:
         if not layer.startEditing():
             raise CommandError("Could not start editing layer")
         updated = 0
+        failed = 0
+        first_error = None
         for feat in layer.getFeatures():
             ctx.setFeature(feat)
             val = expr.evaluate(ctx)
+            # A feature the expression fails on keeps its old value; count it
+            # and keep the first reason instead of skipping it unseen.
             if expr.hasEvalError():
+                error = expr.evalErrorString()
+            elif not layer.changeAttributeValue(feat.id(), idx, val):
+                error = f"could not write {val!r} to {field_name}"
+            else:
+                updated += 1
                 continue
-            layer.changeAttributeValue(feat.id(), idx, val)
-            updated += 1
+            failed += 1
+            if first_error is None:
+                first_error = f"fid {feat.id()}: {error}"
         if not layer.commitChanges():
             errs = "; ".join(layer.commitErrors())
             raise CommandError(f"Commit failed: {errs}")
-        return {"ok": True, "field_name": field_name, "created": created, "updated": updated}
+        response = {
+            "ok": True,
+            "field_name": field_name,
+            "created": created,
+            "updated": updated,
+            "failed": failed,
+        }
+        if first_error:
+            response["first_error"] = first_error
+        measurement = {}
+        if re.search(r"\$(area|length|perimeter)\b", expression):
+            # $area/$length follow the project's units and ellipsoid, not the
+            # layer's - say which, since the field name often claims otherwise.
+            project = QgsProject.instance()
+            measurement.update(
+                ellipsoid=project.ellipsoid(),
+                area_units=QgsUnitTypes.encodeUnit(project.areaUnits()),
+                distance_units=QgsUnitTypes.encodeUnit(project.distanceUnits()),
+            )
+        if _measures_geometry(expression):
+            # The function forms are planimetric in the geometry's CRS (the
+            # layer's for $geometry): square degrees on a geographic layer.
+            measurement["planimetric_units"] = QgsUnitTypes.encodeUnit(layer.crs().mapUnits())
+        if measurement:
+            response["measurement"] = measurement
+        return response
 
     @command
     def get_unique_values(self, layer_id, field, limit=1000, **kwargs):
@@ -539,11 +702,31 @@ class FeatureHandlers:
         idx = layer.fields().indexOf(field)
         if idx < 0:
             raise CommandError(f"Field not found: {field}")
-        raw = layer.uniqueValues(idx, limit)
+        # Two past the limit (room for NULL plus one), so a capped list says so
+        # instead of reading as the whole set.
+        raw = layer.uniqueValues(idx, limit + 2 if limit >= 0 else -1)
         values = [v for v in raw if v is not None and str(v) != "NULL"]
+        truncated = limit >= 0 and len(values) > limit
         with contextlib.suppress(TypeError):
             values = sorted(values, key=lambda x: (str(type(x)), x))
-        return {"field": field, "values": values, "count": len(values)}
+        if limit >= 0:
+            values = values[:limit]
+        # NULL is dropped from values; say whether the field has any.
+        has_null = any(v is None or str(v) == "NULL" for v in raw)
+        if truncated and not has_null:
+            # A capped sample can miss NULL, so ask for one directly.
+            request = QgsFeatureRequest().setFilterExpression(
+                f"{QgsExpression.quotedColumnRef(field)} IS NULL"
+            )
+            request.setLimit(1)
+            has_null = any(True for _ in layer.getFeatures(request))
+        return {
+            "field": field,
+            "values": values,
+            "count": len(values),
+            "truncated": truncated,
+            "has_null": has_null,
+        }
 
     @command
     def validate_expression(self, expression, layer_id=None, **kwargs):
@@ -556,15 +739,14 @@ class FeatureHandlers:
             result["error"] = expr.parserErrorString()
 
         if layer_id:
-            project = QgsProject.instance()
-            if layer_id in project.mapLayers():
-                layer = project.mapLayer(layer_id)
-                if layer.type() == LAYER_VECTOR:
-                    context = QgsExpressionContext()
-                    context.appendScope(QgsExpressionContextUtils.layerScope(layer))
-                    expr.prepare(context)
-                    if expr.hasEvalError():
-                        result["eval_error"] = expr.evalErrorString()
+            # Skipping an unknown layer dropped the column check and said valid.
+            layer = self._get_vector_layer(layer_id)
+            context = QgsExpressionContext()
+            context.appendScope(QgsExpressionContextUtils.layerScope(layer))
+            expr.prepare(context)
+            if expr.hasEvalError():
+                result["valid"] = False
+                result["eval_error"] = expr.evalErrorString()
 
         return result
 
@@ -615,6 +797,13 @@ class FeatureHandlers:
                         f"Layer '{lyr.name()}' is not a vector layer - cannot be queried"
                     )
                 continue
+            if lyr.name() in sources:
+                # Two sources under one table name: the query reads one of
+                # them without saying which.
+                raise CommandError(
+                    f"Two queried layers are named '{lyr.name()}'; rename one or pass "
+                    "'layers' to pick which to query"
+                )
             definition.addSource(lyr.name(), lid)
             sources.append(lyr.name())
         if not sources:
@@ -630,7 +819,7 @@ class FeatureHandlers:
         if not vlayer.isValid():
             raise CommandError(
                 f"Invalid SQL/virtual layer for query: {query} "
-                f"(available table names: {sorted(sources)})"
+                f"(available table names: {sorted(sources)}){self._load_error(vlayer)}"
             )
         if as_layer:
             project.addMapLayer(vlayer)
@@ -650,37 +839,72 @@ class FeatureHandlers:
             rows.append({fn: self._convert_attribute(feat[fn]) for fn in fields})
         return {"fields": fields, "rows": rows, "count": len(rows), "truncated": truncated}
 
+    def _identify_in_layer(self, layer, rect, to_ref, pt_geom, tolerance, limit):
+        """(hits, truncated) for *layer* in *rect*, compared in the point's CRS."""
+        feats = []
+        for feat in layer.getFeatures(QgsFeatureRequest().setFilterRect(rect)):
+            geom = feat.geometry()
+            if geom.isEmpty():
+                continue
+            if to_ref is not None:
+                geom = QgsGeometry(geom)
+                try:
+                    geom.transform(to_ref)
+                except QgsCsException:
+                    # This feature reaches past ref_crs; the rest still count.
+                    continue
+            if tolerance > 0:
+                if geom.distance(pt_geom) > tolerance:
+                    continue
+            elif not geom.intersects(pt_geom):
+                continue
+            if len(feats) >= limit:
+                # A hit past the limit: stop, and say the list is partial.
+                return feats, True
+            attrs = {f.name(): self._convert_attribute(feat[f.name()]) for f in layer.fields()}
+            attrs["_fid"] = feat.id()
+            feats.append(attrs)
+        return feats, False
+
     @command
-    def identify_features(self, point, tolerance=0.0, layer_ids=None, limit=10, **kwargs):
-        """Identify features at a point [x, y] (project CRS) across layers."""
+    def identify_features(self, point, tolerance=0.0, layer_ids=None, limit=10, crs=None, **kwargs):
+        """Identify features at a point [x, y] across layers.
+
+        The point and tolerance are in *crs* when given, else the project CRS.
+        """
         project = QgsProject.instance()
+        ref_crs = self._parse_crs(crs) if crs else project.crs()
         x, y = float(point[0]), float(point[1])
         pt_geom = QgsGeometry.fromPointXY(QgsPointXY(x, y))
         if layer_ids:
-            targets = [self._layer(lid) for lid in layer_ids]
+            # An explicit raster used to be skipped, answering "nothing here".
+            targets = [self._get_vector_layer(lid) for lid in layer_ids]
         else:
             targets = [n.layer() for n in project.layerTreeRoot().findLayers() if n.isVisible()]
         prefilter = QgsRectangle(x - tolerance, y - tolerance, x + tolerance, y + tolerance)
         results = []
+        skipped = []
         for layer in targets:
             if layer is None or layer.type() != LAYER_VECTOR:
                 continue
-            req = QgsFeatureRequest().setFilterRect(prefilter)
-            feats = []
-            for feat in layer.getFeatures(req):
-                geom = feat.geometry()
-                if geom.isEmpty():
-                    continue
-                if tolerance > 0:
-                    if geom.distance(pt_geom) > tolerance:
-                        continue
-                elif not geom.intersects(pt_geom):
-                    continue
-                attrs = {f.name(): self._convert_attribute(feat[f.name()]) for f in layer.fields()}
-                attrs["_fid"] = feat.id()
-                feats.append(attrs)
-                if len(feats) >= limit:
-                    break
+            # The point and tolerance are in ref_crs; the features are in the
+            # layer's. Comparing them raw answered "nothing here" whenever the
+            # two differ, so search in layer CRS and compare in ref_crs.
+            to_project = QgsCoordinateTransform(layer.crs(), ref_crs, project)
+            reproject = layer.crs() != ref_crs and to_project.isValid()
+            try:
+                layer_rect = prefilter
+                if reproject:
+                    to_layer = QgsCoordinateTransform(ref_crs, layer.crs(), project)
+                    layer_rect = to_layer.transformBoundingBox(prefilter)
+                feats, truncated = self._identify_in_layer(
+                    layer, layer_rect, to_project if reproject else None, pt_geom, tolerance, limit
+                )
+            except QgsCsException:
+                # The point lies outside what the layer's CRS can express; one
+                # such layer used to abort the whole call.
+                skipped.append({"layer_id": layer.id(), "reason": "point not transformable"})
+                continue
             if feats:
                 results.append(
                     {
@@ -688,6 +912,10 @@ class FeatureHandlers:
                         "name": layer.name(),
                         "features": feats,
                         "count": len(feats),
+                        "truncated": truncated,
                     }
                 )
-        return {"point": [x, y], "results": results}
+        response = {"point": [x, y], "crs": ref_crs.authid(), "results": results}
+        if skipped:
+            response["skipped_layers"] = skipped
+        return response

@@ -7,12 +7,14 @@ Layer *content* (features, fields, expressions) lives in ``features``; layer
 import fnmatch
 import math
 import os
+import tempfile
 from typing import ClassVar
 
 from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsLayerTreeGroup,
     QgsLayerTreeLayer,
+    QgsMapLayerStyle,
     QgsMessageLog,
     QgsProject,
     QgsRasterLayer,
@@ -20,11 +22,37 @@ from qgis.core import (
     QgsVectorLayerJoinInfo,
 )
 from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtXml import QDomDocument
 
-from ..compat import LAYER_RASTER, LAYER_VECTOR, MSG_INFO, MSG_WARNING, RASTER_STATS_ALL
+from ..compat import (
+    LAYER_RASTER,
+    LAYER_VECTOR,
+    MSG_INFO,
+    MSG_WARNING,
+    RASTER_ALPHA_BAND,
+    RASTER_STATS_ALL,
+)
 from ..errors import CommandError
 from ..registry import command
 from ..wire import zip_strict
+
+_TRUE = ("true", "1", "yes", "on")
+_FALSE = ("false", "0", "no", "off")
+
+
+def _to_bool(value):
+    """Parse a boolean the MCP tool may send as a string.
+
+    ``bool("false")`` is True, so the value has to be read, not truthiness-tested.
+    """
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in _TRUE:
+        return True
+    if text in _FALSE:
+        return False
+    raise CommandError(f"Not a boolean: {value!r}. Use true or false")
 
 
 class LayerHandlers:
@@ -34,32 +62,54 @@ class LayerHandlers:
         """Load *path* with *layer_class*, add it to the project and log it."""
         layer = layer_class(path, name or os.path.basename(path), provider)
         if not layer.isValid():
-            raise CommandError(f"Layer is not valid: {path}")
+            raise CommandError(f"Layer is not valid: {path}{self._load_error(layer)}")
 
         QgsProject.instance().addMapLayer(layer)
         QgsMessageLog.logMessage(f"{kind} layer added: {layer.name()}", self.LOG_TAG, MSG_INFO)
         return layer
 
+    @staticmethod
+    def _with_crs(layer, response):
+        """Add the layer's CRS to *response*, warning when it has none.
+
+        A file without a .prj loads valid with no CRS, and depending on the
+        user's settings QGIS may then assume the project CRS - every later
+        coordinate and measurement rests on that guess.
+        """
+        response["crs"] = layer.crs().authid()
+        if layer.isSpatial() and not layer.crs().isValid():
+            response["warning"] = (
+                "The layer has no CRS (missing .prj or georeferencing); set one with "
+                "set_layer_crs before trusting coordinates or measurements"
+            )
+        return response
+
     @command
     def add_vector_layer(self, path, name=None, provider="ogr", **kwargs):
         layer = self._add_layer(path, name, provider, QgsVectorLayer, "Vector")
-        return {
-            "id": layer.id(),
-            "name": layer.name(),
-            "type": self._get_layer_type(layer),
-            "feature_count": layer.featureCount(),
-        }
+        return self._with_crs(
+            layer,
+            {
+                "id": layer.id(),
+                "name": layer.name(),
+                "type": self._get_layer_type(layer),
+                "feature_count": layer.featureCount(),
+            },
+        )
 
     @command
     def add_raster_layer(self, path, name=None, provider="gdal", **kwargs):
         layer = self._add_layer(path, name, provider, QgsRasterLayer, "Raster")
-        return {
-            "id": layer.id(),
-            "name": layer.name(),
-            "type": "raster",
-            "width": layer.width(),
-            "height": layer.height(),
-        }
+        return self._with_crs(
+            layer,
+            {
+                "id": layer.id(),
+                "name": layer.name(),
+                "type": "raster",
+                "width": layer.width(),
+                "height": layer.height(),
+            },
+        )
 
     @command
     def get_layers(self, limit=50, offset=0, **kwargs):
@@ -151,9 +201,20 @@ class LayerHandlers:
                 QgsMessageLog.logMessage(
                     f"Could not compute stats for band {band}: {e}", self.LOG_TAG, MSG_WARNING
                 )
-            nodata = dp.sourceNoDataValue(band)
-            if nodata is not None:
-                band_info["nodata"] = nodata
+            # The source nodata value only excludes pixels from the statistics
+            # when QGIS is set to use it; reporting it unconditionally implied
+            # nodata pixels were excluded when they were counted as data.
+            if dp.sourceHasNoDataValue(band):
+                band_info["nodata"] = dp.sourceNoDataValue(band)
+                band_info["nodata_used"] = bool(dp.useSourceNoDataValue(band))
+            user_ranges = [[r.min(), r.max()] for r in dp.userNoDataValues(band)]
+            if user_ranges:
+                band_info["user_nodata"] = user_ranges
+            scale, offset = dp.bandScale(band), dp.bandOffset(band)
+            if (scale, offset) != (1.0, 0.0):
+                # Statistics come back scaled; the nodata value is the raw one.
+                band_info.update({"scale": scale, "offset": offset})
+                band_info["note"] = "min/max/mean/stdev are scaled; nodata is the raw stored value"
             info["bands"].append(band_info)
 
         return info
@@ -329,15 +390,34 @@ class LayerHandlers:
         children = [self._layer_tree_node(c) for c in root.children()]
         return {"children": children}
 
+    @staticmethod
+    def _group(root, name, label):
+        """The one group named *name* anywhere under *root*, or raise.
+
+        findGroup() returns the first match, so with two groups of one name
+        the layer silently went into whichever the tree listed first.
+        """
+
+        def named(node):
+            for child in node.children():
+                if isinstance(child, QgsLayerTreeGroup):
+                    if child.name() == name:
+                        yield child
+                    yield from named(child)
+
+        matches = list(named(root))
+        if not matches:
+            raise CommandError(f"{label} not found: {name}")
+        if len(matches) > 1:
+            raise CommandError(
+                f"{len(matches)} groups are named '{name}'; rename one so it can be told apart"
+            )
+        return matches[0]
+
     @command
     def create_layer_group(self, name, parent=None, **kwargs):
         root = QgsProject.instance().layerTreeRoot()
-        if parent:
-            target = root.findGroup(parent)
-            if target is None:
-                raise CommandError(f"Parent group not found: {parent}")
-        else:
-            target = root
+        target = self._group(root, parent, "Parent group") if parent else root
         target.addGroup(name)
         return {"name": name, "ok": True}
 
@@ -350,9 +430,7 @@ class LayerHandlers:
         if node is None:
             raise CommandError(f"Layer not found in tree: {layer_id}")
 
-        target = root.findGroup(group_name)
-        if target is None:
-            raise CommandError(f"Group not found: {group_name}")
+        target = self._group(root, group_name, "Group")
 
         clone = node.clone()
         target.addChildNode(clone)
@@ -365,7 +443,7 @@ class LayerHandlers:
     _LAYER_PROPERTIES: ClassVar[dict] = {
         "opacity": (float, "setOpacity"),
         "name": (str, "setName"),
-        "scale_visibility": (bool, "setScaleBasedVisibility"),
+        "scale_visibility": (_to_bool, "setScaleBasedVisibility"),
         "min_scale": (float, "setMinimumScale"),
         "max_scale": (float, "setMaximumScale"),
     }
@@ -374,10 +452,12 @@ class LayerHandlers:
     def set_layer_property(self, layer_id, property, value, **kwargs):
         layer = self._layer(layer_id)
         coerce, setter = self._pick(self._LAYER_PROPERTIES, property, "property")
-        getattr(layer, setter)(coerce(value))
+        applied = coerce(value)
+        getattr(layer, setter)(applied)
 
         self.iface.mapCanvas().refresh()
-        return {"ok": True, "property": property, "value": value}
+        # The coerced value, so the caller sees what was set, not what was sent.
+        return {"ok": True, "property": property, "value": applied}
 
     @command
     def get_layer_extent(self, layer_id, **kwargs):
@@ -559,7 +639,7 @@ class LayerHandlers:
         layer = layer_class(uri, name or default_name, provider)
 
         if not layer.isValid():
-            raise CommandError(f"Layer is not valid: {url}")
+            raise CommandError(f"Layer is not valid: {url}{self._load_error(layer)}")
 
         QgsProject.instance().addMapLayer(layer)
         # Report the CRS the layer actually got, so a caller can see what the
@@ -578,6 +658,11 @@ class LayerHandlers:
         """Add a table join to a vector layer."""
         target_layer = self._get_vector_layer(target_layer_id)
         join_layer = self._get_vector_layer(join_layer_id)
+        # addJoin accepts field names neither layer has, and every joined
+        # column then reads NULL.
+        for lyr, field in ((target_layer, target_field), (join_layer, join_field)):
+            if lyr.fields().indexOf(field) < 0:
+                raise CommandError(f"Field not found on {lyr.name()}: {field}")
 
         join_info = QgsVectorLayerJoinInfo()
         join_info.setTargetFieldName(target_field)
@@ -593,17 +678,68 @@ class LayerHandlers:
             raise CommandError("Failed to add table join")
 
     @command
-    def apply_style_qml(self, layer_id, path, **kwargs):
-        """Apply a QML style to a layer."""
+    def apply_style_qml(self, layer_id, path=None, qml=None, **kwargs):
+        """Apply a QML style (file ``path`` or inline ``qml`` text) to a layer.
+
+        loadNamedStyle reports success on a file it only half understood, so the
+        renderer the QML declares is compared with the one the layer ends up
+        with; on any failure the previous style is put back.
+        """
+        if (path is None) == (qml is None):
+            raise CommandError("Pass exactly one of 'path' or 'qml'")
         layer = self._layer(layer_id)
 
-        message, success = layer.loadNamedStyle(path)
-        if success:
-            layer.triggerRepaint()
-            self.iface.layerTreeView().refreshLayerSymbology(layer.id())
-            return {"ok": True, "message": message}
+        if path is not None:
+            # Bytes, so the parser honours the file's own encoding declaration.
+            with open(path, "rb") as f:
+                text = f.read()
         else:
-            raise CommandError(f"Failed to apply style: {message}")
+            text = qml
+        # Qt's parser, the one loadNamedStyle itself reads the QML with: no
+        # second XML parser for the same untrusted text.
+        doc = QDomDocument()
+        ok, error, line, column = doc.setContent(text)
+        if not ok:
+            raise CommandError(
+                f"QML is not well-formed XML: {error} (line {line}, column {column})"
+            )
+        root = doc.documentElement()
+        if root.tagName() != "qgis":
+            raise CommandError(f"QML root element must be <qgis>, got <{root.tagName()}>")
+
+        vector = root.firstChildElement("renderer-v2")
+        raster = root.firstChildElement("pipe").firstChildElement("rasterrenderer")
+        own, other = (raster, vector) if layer.type() == LAYER_RASTER else (vector, raster)
+        if own.isNull() and not other.isNull():
+            kind = "vector" if own is raster else "raster"
+            raise CommandError(f"QML holds a {kind} style; layer {layer.name()} is not {kind}")
+        declared = None if own.isNull() else own.attribute("type") or None
+
+        previous = QgsMapLayerStyle()
+        previous.readFromLayer(layer)
+        if path is not None:
+            message, success = layer.loadNamedStyle(path)
+        else:
+            fd, tmp = tempfile.mkstemp(suffix=".qml")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(qml)
+                message, success = layer.loadNamedStyle(tmp)
+            finally:
+                os.remove(tmp)
+
+        # Mesh and annotation layers have no renderer() at all.
+        renderer = layer.renderer() if hasattr(layer, "renderer") else None
+        loaded = renderer.type() if renderer is not None else None
+        if not success or (declared and loaded != declared):
+            previous.writeToLayer(layer)
+            if success:
+                message = f"QML declares renderer '{declared}' but QGIS loaded '{loaded}'"
+            raise CommandError(f"Failed to apply style, previous style restored: {message}")
+
+        layer.triggerRepaint()
+        self.iface.layerTreeView().refreshLayerSymbology(layer.id())
+        return {"ok": True, "renderer": loaded, "message": message}
 
     @command
     def save_style_qml(self, layer_id, path, **kwargs):
@@ -625,29 +761,53 @@ class LayerHandlers:
 
         if layer.type() == LAYER_VECTOR:
             src = layer
+            # Only the first run reads the layer, so only it can skip invalid features.
+            warnings = None
             if filter_expression:
-                r = self._run_alg(
+                self._check_filter_expression(layer, filter_expression)
+                r, warnings = self._run_alg_with_warnings(
                     "native:extractbyexpression",
                     {"INPUT": layer, "EXPRESSION": filter_expression, "OUTPUT": "memory:"},
                 )
                 src = r["OUTPUT"]
             if target_crs:
-                self._run_alg(
+                _, saved = self._run_alg_with_warnings(
                     "native:reprojectlayer",
                     {"INPUT": src, "TARGET_CRS": target_crs, "OUTPUT": output_path},
                 )
             else:
-                self._run_alg("native:savefeatures", {"INPUT": src, "OUTPUT": output_path})
-            return {"ok": True, "output": output_path}
+                _, saved = self._run_alg_with_warnings(
+                    "native:savefeatures", {"INPUT": src, "OUTPUT": output_path}
+                )
+            return {"ok": True, "output": output_path, **(saved if warnings is None else warnings)}
 
         if layer.type() == LAYER_RASTER:
-            if target_crs:
-                self._run_alg(
-                    "gdal:warpreproject",
-                    {"INPUT": layer, "TARGET_CRS": target_crs, "OUTPUT": output_path},
-                )
-            else:
+            if filter_expression:
+                # Ignoring it would hand back the whole raster as if filtered.
+                raise CommandError("filter_expression applies to vector layers only")
+            if not target_crs:
                 self._run_alg("gdal:translate", {"INPUT": layer, "OUTPUT": output_path})
-            return {"ok": True, "output": output_path}
+                return {"ok": True, "output": output_path}
+            params = {"INPUT": layer, "TARGET_CRS": target_crs, "OUTPUT": output_path}
+            dp = layer.dataProvider()
+            # gdalwarp carries a source nodata over to the fill; without one it
+            # fills the cells outside the reprojected footprint with 0, which
+            # reads as real data. An alpha band marks them instead; gdalwarp
+            # carries a source alpha band over by itself, but only the last one.
+            bands = range(1, layer.bandCount() + 1)
+            alpha = dp.colorInterpretation(layer.bandCount()) != RASTER_ALPHA_BAND and not all(
+                dp.sourceHasNoDataValue(band) for band in bands
+            )
+            if alpha:
+                params["EXTRA"] = "-dstalpha"
+            self._run_alg("gdal:warpreproject", params)
+            result = {"ok": True, "output": output_path}
+            if alpha:
+                result["alpha_band_added"] = True
+                result["note"] = (
+                    "The source has no nodata value, so an alpha band (the last band) marks "
+                    "the cells outside the reprojected footprint; they would otherwise read as 0."
+                )
+            return result
 
         raise CommandError(f"Unsupported layer type for export: {layer_id}")

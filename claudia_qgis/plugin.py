@@ -323,6 +323,10 @@ class ClaudiaQgisPlugin:
 
     def unload(self):
         self._desconectar()
+        # (0.15.0) os checkpoints do projeto vivem numa pasta temporária do executor
+        if self.executor:
+            with contextlib.suppress(Exception):
+                self.executor.limpar_checkpoints()
         if self.action:
             with contextlib.suppress(Exception):
                 self.action.triggered.disconnect(self._alternar)

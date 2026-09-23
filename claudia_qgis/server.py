@@ -8,15 +8,18 @@ na ClaudIA QGIS os comandos chegam pela comunidade agrônomo10X
 executados aqui, na thread principal do QGIS. Os handlers (``handlers/``)
 são os do projeto original; nada neste módulo sabe o que cada um faz.
 
-Modificado por OagronomIA (2026-09-13) a partir de nkarasiak/qgis-mcp — GPLv2+.
+Modificado por OagronomIA (2026-09-13; diário de sessão e jobs do upstream 0.15.0 em 2026-09-23) a partir de nkarasiak/qgis-mcp — GPLv2+.
 """
 
+import copy
 import inspect
+import itertools
+import shutil
 import traceback
 from collections import deque
 from typing import ClassVar
 
-from qgis.core import QgsApplication, QgsMessageLog
+from qgis.core import QgsApplication, QgsMessageLog, QgsProject
 from qgis.PyQt.QtCore import QObject
 
 from .compat import MSG_CRITICAL, MSG_INFO, MSG_WARNING
@@ -31,10 +34,11 @@ from .handlers import (
     LayoutHandlers,
     ProcessingHandlers,
     ProjectHandlers,
+    SessionHandlers,
     StyleHandlers,
     SystemHandlers,
 )
-from .registry import BATCH_BLOCKED_COMMANDS, COMMANDS, command
+from .registry import BATCH_BLOCKED_COMMANDS, COMMANDS, UNRECORDED_COMMANDS, command
 
 
 class ClaudiaExecutor(
@@ -47,6 +51,7 @@ class ClaudiaExecutor(
     ProcessingHandlers,
     LayoutHandlers,
     ConnectionHandlers,
+    SessionHandlers,
     HandlerBase,
     QObject,
 ):
@@ -58,6 +63,9 @@ class ClaudiaExecutor(
 
     LOG_TAG: ClassVar[str] = LOG_TAG
 
+    # (0.15.0) comandos guardados para export_session; passou disto, os mais antigos caem
+    MAX_JOURNAL: ClassVar[int] = 1000
+
     def __init__(self, iface=None):
         super().__init__()
         self.iface = iface
@@ -68,6 +76,17 @@ class ClaudiaExecutor(
         # com feedback) bombeiam o event loop do Qt para a interface não
         # travar, e um sinal enfileirado poderia entrar NO MEIO do handler.
         self._in_dispatch = False
+        # (0.15.0) jobs do Processing em segundo plano, por id (ProcessingHandlers).
+        self._jobs = {}
+        self._job_ids = itertools.count(1)
+        # (0.15.0) todo comando que mudou algo, para export_session (_record).
+        self._journal = deque(maxlen=self.MAX_JOURNAL)
+        self._journal_seq = itertools.count(1)
+        self._journal_truncated = False
+        # (0.15.0) snapshots do projeto, por id (SessionHandlers), numa pasta temporária.
+        self._checkpoints = {}
+        self._checkpoint_ids = itertools.count(1)
+        self._checkpoint_dir = None
         # Estado da conexão com a comunidade, preenchido pelo plugin e lido
         # pelo handler `diagnose`.
         self.comunidade = {
@@ -165,9 +184,28 @@ class ClaudiaExecutor(
                 QgsMessageLog.logMessage(f"Parâmetros inválidos: {message}", self.LOG_TAG, MSG_WARNING)
                 return {"status": "error", "message": message}
 
+            # (0.15.0) diário para export_session: os parâmetros são copiados ANTES
+            # da chamada (handlers reescrevem o que recebem — runAndLoadResults troca
+            # caminhos de saída por definições de camada).
+            record = cmd_type not in UNRECORDED_COMMANDS
+            if record:
+                recorded = copy.deepcopy(params)
+                layers_before = set(QgsProject.instance().mapLayers())
+                mark = self._journal[-1]["seq"] if self._journal else 0
+
             try:
                 QgsMessageLog.logMessage(f"Executando: {cmd_type}", self.LOG_TAG, MSG_INFO)
-                return {"status": "success", "result": handler(**params)}
+                result = handler(**params)
+                # execute_code devolve como sucesso um script que levantou exceção.
+                if record and not (isinstance(result, dict) and result.get("executed") is False):
+                    # Um job em segundo plano que terminou enquanto este handler bombeava
+                    # o event loop registrou as próprias camadas; não são deste comando.
+                    for entry in reversed(self._journal):
+                        if entry["seq"] <= mark:
+                            break
+                        layers_before.update(lid for lid, _ in entry["creates"])
+                    self._record(cmd_type, recorded, self._layers_added_since(layers_before))
+                return {"status": "success", "result": result}
             except CommandError as e:
                 # Falha esperada, que quem chamou consegue tratar — só a
                 # mensagem, sem traceback.
@@ -191,6 +229,37 @@ class ClaudiaExecutor(
                 MSG_CRITICAL,
             )
             return {"status": "error", "message": str(e), "internal": True}
+
+    def _record(self, cmd_type, params, creates=()):
+        """Registra no diário um comando que deu certo, para export_session refazer.
+
+        *creates* são os ``(id, nome)`` das camadas que ele criou: ids nascem de
+        novo a cada execução, então o replay casa pelo nome.
+        """
+        if len(self._journal) == self._journal.maxlen:
+            self._journal_truncated = True
+        self._journal.append(
+            {
+                "seq": next(self._journal_seq),
+                "command": cmd_type,
+                "params": params,
+                "creates": list(creates),
+            }
+        )
+
+    @staticmethod
+    def _layers_added_since(before):
+        project = QgsProject.instance()
+        return [
+            (lid, layer.name()) for lid, layer in project.mapLayers().items() if lid not in before
+        ]
+
+    def limpar_checkpoints(self):
+        """Apaga a pasta temporária dos checkpoints (unload do plugin)."""
+        if self._checkpoint_dir:
+            shutil.rmtree(self._checkpoint_dir, ignore_errors=True)
+            self._checkpoint_dir = None
+            self._checkpoints.clear()
 
     @command
     def batch(self, commands, **kwargs):

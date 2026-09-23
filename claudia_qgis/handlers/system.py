@@ -1,4 +1,4 @@
-"""Modificado por OagronomIA (2026-09-13; handlers atualizados para o upstream 0.14.1 em 2026-09-17) a partir de nkarasiak/qgis-mcp — GPLv2+.
+"""Modificado por OagronomIA (2026-09-13; handlers atualizados para o upstream 0.15.0 em 2026-09-23) a partir de nkarasiak/qgis-mcp — GPLv2+.
 
 Handlers for QGIS itself: health, versions, message log, plugins, settings."""
 
@@ -205,7 +205,13 @@ class SystemHandlers:
             sys.stdout = original_stdout
             sys.stderr = original_stderr
 
-    _LEVEL_MAP: ClassVar[dict[int, str]] = {0: "info", 1: "warning", 2: "critical", 3: "success"}
+    _LEVEL_MAP: ClassVar[dict[int, str]] = {
+        0: "info",
+        1: "warning",
+        2: "critical",
+        3: "success",
+        4: "none",
+    }
 
     def _capture_message(self, message, tag, level, *_extra):
         """Capture a message log entry into the deque.
@@ -227,11 +233,23 @@ class SystemHandlers:
         entries = list(self._message_log)
         entries.reverse()  # newest first
         if level:
+            # An unknown level ("error") used to filter everything out silently.
+            level = level.lower()
+            if level not in self._LEVEL_MAP.values():
+                raise CommandError(
+                    f"Unknown level: {level!r}. Use one of {sorted(self._LEVEL_MAP.values())}"
+                )
             entries = [e for e in entries if e["level"] == level]
         if tag:
             entries = [e for e in entries if e["tag"] == tag]
+        total = len(entries)
         entries = entries[:limit]
-        return {"messages": entries, "count": len(entries)}
+        return {
+            "messages": entries,
+            "count": len(entries),
+            "total": total,
+            "truncated": total > len(entries),
+        }
 
     @command
     def list_plugins(self, enabled_only=False, **kwargs):
@@ -266,7 +284,13 @@ class SystemHandlers:
             raise CommandError("Cannot reload the ClaudIA QGIS plugin (would break the connection)")
         if plugin_name not in active_plugins:
             raise CommandError(f"Plugin not active: {plugin_name}")
-        reloadPlugin(plugin_name)
+        started = reloadPlugin(plugin_name)
+        # A plugin whose code no longer loads is dropped from active_plugins
+        # (QGIS 4 also returns False); its error only reaches the message bar.
+        if started is False or plugin_name not in active_plugins:
+            raise CommandError(
+                f"Plugin {plugin_name} failed to start after reload; see the QGIS message log"
+            )
         return {"reloaded": plugin_name, "ok": True}
 
     @command
