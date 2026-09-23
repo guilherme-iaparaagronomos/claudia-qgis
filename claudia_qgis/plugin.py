@@ -213,6 +213,8 @@ class ClaudiaQgisPlugin:
         self.atualizar_action = None
         self._versao_oferecida = None
         self._atualizando = False
+        # (0.4.1) threads que não pararam a tempo ficam aqui até terminar (nunca destruir QThread rodando)
+        self._threads_zumbis = []
 
     # --------------------------------------------------------------- ícones
     def _icone_base(self):
@@ -476,7 +478,17 @@ class ClaudiaQgisPlugin:
             self.worker.parar()
         if self.thread:
             self.thread.quit()
-            self.thread.wait(3000)
+            if not self.thread.wait(5000):
+                # (0.4.1) NUNCA soltar a última referência de um QThread ainda rodando:
+                # o Qt aborta o processo ("QThread: Destroyed while thread is still
+                # running") e o QGIS fecha sem aviso. A thread fica estacionada até
+                # terminar sozinha (o poll vence em até 45 s) e aí se apaga.
+                zumbi = self.thread
+                self._threads_zumbis.append(zumbi)
+                with contextlib.suppress(Exception):
+                    zumbi.finished.connect(zumbi.deleteLater)
+                    zumbi.finished.connect(lambda z=zumbi: z in self._threads_zumbis and self._threads_zumbis.remove(z))
+                QgsMessageLog.logMessage("O worker demorou a parar; termina em segundo plano.", LOG_TAG, MSG_INFO)
             self.thread = None
         self.worker = None
         if self.executor:

@@ -34,7 +34,7 @@ about=ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
     run inside QGIS are his work; ClaudIA QGIS replaces the local socket
     server with the community connection.
 
-version=0.4.0
+version=0.4.1
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -47,7 +47,12 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.15.0 —
+changelog=0.4.1 : correção: "Atualizar agora" (e desconectar) podia fechar o QGIS
+    sem aviso — no Windows, fechar o socket de outra thread não acorda o
+    long-poll em curso; a thread passava do tempo de espera e era destruída
+    ainda rodando. Agora o socket é encerrado (shutdown) e a thread nunca é
+    destruída viva. Sem mudança nas ferramentas.
+    0.4.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.15.0 —
     processamento em segundo plano (start_processing_job, get_processing_job,
     cancel_processing_job: sem teto de tempo e sem travar o QGIS), checkpoints
     do projeto (create_checkpoint, list_checkpoints, restore_checkpoint) e

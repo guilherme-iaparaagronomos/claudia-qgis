@@ -102,6 +102,15 @@ class ComunidadeWorker(QObject):
         self._resultados.put(None)
         conn = self._conn
         if conn is not None:
+            # (0.4.1) No Windows, `close()` vindo de OUTRA thread NÃO acorda um `recv`
+            # bloqueado (pior com TLS): a thread ficava presa no long-poll de ~20 s,
+            # o `wait(3000)` do plugin vencia, o QThread era destruído em execução e
+            # o QGIS fechava sozinho — era o "Atualizar agora" derrubando o QGIS.
+            # `shutdown(SHUT_RDWR)` interrompe a leitura na hora.
+            sock = getattr(conn, "sock", None)
+            if sock is not None:
+                with contextlib.suppress(OSError, ValueError):
+                    sock.shutdown(socket.SHUT_RDWR)
             # fechar um socket já morto não é erro: é o efeito desejado
             with contextlib.suppress(OSError, http.client.HTTPException):
                 conn.close()
