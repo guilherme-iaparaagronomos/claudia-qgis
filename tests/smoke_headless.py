@@ -152,6 +152,10 @@ for _ in range(600):
     if estado in ("succeeded", "failed", "cancelled"):
         break
 ok(f"get_processing_job → {estado} com camada carregada") if estado == "succeeded" and (r.get("result") or {}).get("loaded_layers") else furo("get_processing_job", r)
+# a saída do job também se chama "Buffered": duas camadas com o mesmo nome fazem o
+# execute_sql sem `layers` recusar (regra da 0.15.0) — tira a do job antes do E2E
+for camada in (r.get("result") or {}).get("loaded_layers") or []:
+    run("remove_layer", layer_id=camada.get("id"))
 
 # ------------------------------------------------------------ comunidade
 token = os.environ.get("CLAUDIA_QGIS_TOKEN")
