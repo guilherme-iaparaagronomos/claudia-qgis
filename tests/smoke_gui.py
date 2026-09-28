@@ -20,7 +20,11 @@ from qgis.PyQt.QtWidgets import QMainWindow, QMenu, QToolBar  # noqa: E402
 app = QgsApplication([], True)
 app.initQgis()
 
-from claudia_qgis.plugin import ESTADOS, ClaudiaQgisPlugin, _normalizar_base  # noqa: E402
+import claudia_qgis.i18n as i18n  # noqa: E402
+from claudia_qgis.plugin import ESTADOS, ClaudiaQgisPlugin, _estado_textos, _normalizar_base  # noqa: E402
+
+# (0.4.2) idioma determinístico no teste: português primeiro, inglês no fim
+i18n.idioma = lambda: i18n.PT
 
 assert _normalizar_base("https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis") == "https://comunidade.agronomos.ia.br"
 assert _normalizar_base("comunidade.agronomos.ia.br/") == "https://comunidade.agronomos.ia.br"
@@ -42,7 +46,7 @@ assert plugin.action is not None and plugin.tool_button is not None and plugin.s
 assert "ClaudIA" in plugin.status_label.text()
 for estado in ESTADOS:
     plugin._mostrar_estado(estado, "detalhe de teste")
-    assert plugin.action.text() == ESTADOS[estado][1], (estado, plugin.action.text())
+    assert plugin.action.text() == _estado_textos(estado)[1], (estado, plugin.action.text())
     assert "ClaudIA QGIS" in plugin.status_label.text()
     assert not plugin.action.icon().isNull()
     print("  ok ", estado, "→", plugin.action.text(), "|", plugin.tool_button.styleSheet()[:48])
@@ -50,6 +54,19 @@ plugin._estado_mudou("conectado", "x")
 assert plugin.action.text() == "ClaudIA · CONECTADO"
 plugin._estado_mudou("sem_rede", "HTTP 429")
 assert "sem conexão" in plugin.action.text()
+
+# (0.4.2) troca de idioma em tempo de execução: menu e estado retraduzidos
+i18n.idioma = lambda: i18n.EN
+plugin._aplicar_idioma()
+assert plugin.conectar_action.text() == "Connect to the community…", plugin.conectar_action.text()
+assert "no connection" in plugin.action.text(), plugin.action.text()
+plugin._estado_mudou("conectado", "x")
+assert plugin.action.text() == "ClaudIA · CONNECTED", plugin.action.text()
+assert "connected to the community" in plugin.status_label.text()
+print("  ok  idioma: pt → en retraduz menu, botão e barra de status")
+i18n.idioma = lambda: i18n.PT
+plugin._aplicar_idioma()
+assert plugin.conectar_action.text() == "Conectar à comunidade…"
 
 # atualização: oferta uma vez por versão; versão igual/menor não oferece
 from claudia_qgis import updater  # noqa: E402

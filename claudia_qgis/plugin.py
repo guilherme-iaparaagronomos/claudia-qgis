@@ -15,6 +15,7 @@ from qgis.PyQt.QtGui import QColor, QDesktopServices, QIcon, QPainter, QPen
 from qgis.PyQt.QtWidgets import (
     QAction,
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -28,8 +29,9 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
 )
 
-from . import updater
+from . import i18n, updater
 from .community import ComunidadeWorker
+from .i18n import t
 from .compat import (
     MSG_CRITICAL,
     MSG_INFO,
@@ -62,15 +64,22 @@ _QUEUED = getattr(getattr(Qt, "ConnectionType", Qt), "QueuedConnection")
 _ALIGN_RIGHT = getattr(getattr(Qt, "AlignmentFlag", Qt), "AlignRight")
 _TEXT_BESIDE_ICON = getattr(getattr(Qt, "ToolButtonStyle", Qt), "ToolButtonTextBesideIcon")
 
-# Estado da conexão → (cor, rótulo na barra, texto da barra de status, negrito)
+# Estado da conexão → (cor, negrito); rótulo e texto vêm do i18n (estado.<nome>.rotulo/texto)
 ESTADOS = {
-    "parado": ("#9E9E9E", "ClaudIA QGIS", "desconectado — clique no botão da ClaudIA para conectar", False),
-    "conectando": ("#F9A825", "ClaudIA · conectando…", "conectando à comunidade…", False),
-    "conectado": ("#52C937", "ClaudIA · CONECTADO", "conectado à comunidade — a sua IA já pode operar este QGIS", True),
-    "sem_rede": ("#F9A825", "ClaudIA · sem conexão", "sem conexão com a comunidade (tentando de novo)", False),
-    "token_invalido": ("#D32F2F", "ClaudIA · token recusado", "token recusado — gere outro na comunidade", True),
+    "parado": ("#9E9E9E", False),
+    "conectando": ("#F9A825", False),
+    "conectado": ("#52C937", True),
+    "sem_rede": ("#F9A825", False),
+    "token_invalido": ("#D32F2F", True),
 }
 _COR_TEXTO = {"#52C937": "#1B7F2A", "#F9A825": "#8A5A00", "#D32F2F": "#B71C1C", "#9E9E9E": "#616161"}
+
+
+def _estado_textos(estado):
+    """(cor, rótulo do botão, texto da barra de status, negrito) no idioma em vigor."""
+    nome = estado if estado in ESTADOS else "parado"
+    cor, negrito = ESTADOS[nome]
+    return cor, t(f"estado.{nome}.rotulo"), t(f"estado.{nome}.texto"), negrito
 
 
 def _cfg(chave, padrao=None, tipo=None):
@@ -115,19 +124,15 @@ class ConectarDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("ClaudIA QGIS — Conectar à comunidade")
+        self.setWindowTitle(t("conectar.titulo"))
         self.setMinimumWidth(540)
         layout = QVBoxLayout(self)
 
-        intro = QLabel(
-            "<p>Gere um <b>token do plugin</b> na sua página da comunidade agrônomo10X "
-            "e cole abaixo. O token identifica o SEU QGIS: a sua IA (Claude, ChatGPT…) "
-            "conversa com a comunidade, e a comunidade fala com este QGIS.</p>"
-        )
+        intro = QLabel(t("conectar.intro"))
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        abrir = QPushButton("Abrir minha página na comunidade para gerar o token")
+        abrir = QPushButton(t("conectar.abrir_pagina"))
         abrir.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(_pagina_conector())))
         layout.addWidget(abrir)
 
@@ -137,38 +142,40 @@ class ConectarDialog(QDialog):
         self.token.setEchoMode(_ECHO_PASSWORD)
         self.token.setText(_cfg("token", "") or "")
         self.token.textEdited.connect(lambda _t: self.token.setStyleSheet(""))
-        form.addRow("Token do plugin:", self.token)
-        mostrar = QCheckBox("Mostrar o token")
+        form.addRow(t("conectar.token"), self.token)
+        mostrar = QCheckBox(t("conectar.exibir_codigo"))
         mostrar.toggled.connect(lambda on: self.token.setEchoMode(_ECHO_NORMAL if on else _ECHO_PASSWORD))
         form.addRow("", mostrar)
-        self.autostart = QCheckBox("Conectar sozinho quando o QGIS abrir")
+        self.autostart = QCheckBox(t("conectar.autostart"))
         self.autostart.setChecked(bool(_cfg("autostart", False, bool)))
         form.addRow("", self.autostart)
+        # (0.4.2) idioma da interface: automático (segue o QGIS), português ou inglês
+        self.idioma = QComboBox()
+        for valor, chave in ((i18n.AUTO, "conectar.idioma.auto"), (i18n.PT, "conectar.idioma.pt"), (i18n.EN, "conectar.idioma.en")):
+            self.idioma.addItem(t(chave), valor)
+        self.idioma.setCurrentIndex(max(0, self.idioma.findData(i18n.idioma_configurado())))
+        form.addRow(t("conectar.idioma"), self.idioma)
         layout.addLayout(form)
 
-        avancado = QGroupBox("Avançado")
+        avancado = QGroupBox(t("conectar.avancado"))
         avancado.setCheckable(True)
         avancado.setChecked(_base_url() != DEFAULT_BASE_URL)
         av_layout = QFormLayout(avancado)
         self.base_url = QLineEdit(_base_url())
-        av_layout.addRow("Endereço da comunidade:", self.base_url)
-        dica = QLabel("Só mude se a equipe da comunidade pedir (ambiente de testes).")
+        av_layout.addRow(t("conectar.endereco"), self.base_url)
+        dica = QLabel(t("conectar.endereco_dica"))
         dica.setStyleSheet("color: gray")
         av_layout.addRow("", dica)
         layout.addWidget(avancado)
         self._avancado = avancado
 
-        privacidade = QLabel(
-            "<small>O que o plugin envia à comunidade: a versão do QGIS, o nome do projeto aberto e o "
-            "resultado dos comandos que a SUA IA pedir (dados das camadas, imagens do mapa). "
-            "Nada sai sem um comando seu. Revogue o token na sua página a qualquer momento.</small>"
-        )
+        privacidade = QLabel(t("conectar.privacidade"))
         privacidade.setWordWrap(True)
         layout.addWidget(privacidade)
 
         botoes = QDialogButtonBox()
-        salvar = botoes.addButton("Salvar e conectar", _ROLE_ACCEPT)
-        botoes.addButton("Cancelar", _ROLE_REJECT)
+        salvar = botoes.addButton(t("conectar.salvar"), _ROLE_ACCEPT)
+        botoes.addButton(t("conectar.cancelar"), _ROLE_REJECT)
         salvar.setDefault(True)
         botoes.accepted.connect(self._salvar)
         botoes.rejected.connect(self.reject)
@@ -187,6 +194,7 @@ class ConectarDialog(QDialog):
         _set_cfg("token", token)
         _set_cfg("base_url", base)
         _set_cfg("autostart", self.autostart.isChecked())
+        i18n.definir_idioma(str(self.idioma.currentData() or i18n.AUTO))
         self.accept()
 
 
@@ -243,11 +251,11 @@ class ClaudiaQgisPlugin:
 
     def _mostrar_estado(self, estado, detalhe=""):
         """Um lugar só para refletir o estado: ícone, rótulo, cor, tooltip e barra de status."""
-        cor, rotulo, texto, negrito = ESTADOS.get(estado, ESTADOS["parado"])
+        cor, rotulo, texto, negrito = _estado_textos(estado)
         if self.action:
             self.action.setIcon(self._icone_base() if estado == "parado" else self._icone_estado(cor))
             self.action.setText(rotulo)
-            self.action.setToolTip(f"ClaudIA QGIS — {texto}" + (f" · {detalhe}" if detalhe else ""))
+            self.action.setToolTip(t("estado.tooltip", texto=texto) + (f" · {detalhe}" if detalhe else ""))
         if self.tool_button:
             peso = "bold" if negrito else "normal"
             self.tool_button.setStyleSheet(
@@ -266,16 +274,16 @@ class ClaudiaQgisPlugin:
 
         self.action = QAction(self._icone_base(), "ClaudIA QGIS", self.iface.mainWindow())
         self.action.setCheckable(True)
-        self.action.setToolTip("ClaudIA QGIS — clique para conectar à comunidade")
+        self.action.setToolTip(t("menu.tooltip"))
         self.action.triggered.connect(self._alternar)
 
-        self.conectar_action = QAction("Conectar à comunidade…", self.iface.mainWindow())
+        self.conectar_action = QAction(t("menu.conectar"), self.iface.mainWindow())
         self.conectar_action.triggered.connect(self._abrir_dialogo)
-        self.pagina_action = QAction("Minha página na comunidade", self.iface.mainWindow())
+        self.pagina_action = QAction(t("menu.pagina"), self.iface.mainWindow())
         self.pagina_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(_pagina_conector())))
-        self.atualizar_action = QAction("Atualizar o plugin…", self.iface.mainWindow())
+        self.atualizar_action = QAction(t("menu.atualizar"), self.iface.mainWindow())
         self.atualizar_action.triggered.connect(self._verificar_atualizacao)
-        self.sobre_action = QAction("Sobre a ClaudIA QGIS", self.iface.mainWindow())
+        self.sobre_action = QAction(t("menu.sobre"), self.iface.mainWindow())
         self.sobre_action.triggered.connect(self._sobre)
 
         menu = QMenu()
@@ -313,7 +321,7 @@ class ClaudiaQgisPlugin:
             # a versão anterior se atualizou e pediu para voltar conectada
             _set_cfg("reconectar_apos_update", False)
             with contextlib.suppress(Exception):
-                self.iface.messageBar().pushSuccess(LOG_TAG, f"Plugin atualizado para a versão {plugin_version()}.")
+                self.iface.messageBar().pushSuccess(LOG_TAG, t("msg.atualizado", versao=plugin_version()))
             if _cfg("token", ""):
                 self.action.setChecked(True)
                 self._conectar()
@@ -353,34 +361,21 @@ class ClaudiaQgisPlugin:
             return
         _set_cfg("first_run", False)
         dlg = QDialog(self.iface.mainWindow())
-        dlg.setWindowTitle("ClaudIA QGIS instalada")
+        dlg.setWindowTitle(t("boasvindas.titulo"))
         dlg.setMinimumWidth(480)
         layout = QVBoxLayout(dlg)
-        corpo = QLabel(
-            "<h2>ClaudIA QGIS</h2>"
-            "<p>A sua IA (Claude, ChatGPT…) passa a enxergar e operar este QGIS pela "
-            "comunidade <b>agrônomo10X</b>.</p>"
-            "<p><b>Três passos:</b></p>"
-            "<ol>"
-            "<li>Na comunidade, abra <b>Soluções → MCP → ClaudIA QGIS</b> e gere um token do plugin.</li>"
-            "<li>Aqui, clique no botão da ClaudIA na barra → <b>Conectar à comunidade…</b> e cole o token.</li>"
-            "<li>Conecte a ClaudIA QGIS na sua IA (a mesma página explica) e peça: "
-            "<i>“lista as camadas do meu projeto”</i>.</li>"
-            "</ol>"
-            f"<p><small>Software livre (GPLv2+), derivado do QGIS MCP de Nicolas Karasiak. "
-            f"Código-fonte: <a href='{REPO_URL}'>{REPO_URL}</a></small></p>"
-        )
+        corpo = QLabel(t("boasvindas.corpo", repo=REPO_URL))
         corpo.setWordWrap(True)
         corpo.setOpenExternalLinks(True)
         layout.addWidget(corpo)
         botoes = QHBoxLayout()
-        abrir = QPushButton("Abrir a comunidade")
+        abrir = QPushButton(t("boasvindas.abrir"))
         abrir.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(_pagina_conector())))
-        conectar = QPushButton("Conectar agora")
+        conectar = QPushButton(t("boasvindas.conectar"))
         conectar.setDefault(True)
         conectar.clicked.connect(dlg.accept)
         conectar.clicked.connect(self._abrir_dialogo)
-        fechar = QPushButton("Depois")
+        fechar = QPushButton(t("boasvindas.depois"))
         fechar.clicked.connect(dlg.reject)
         botoes.addWidget(abrir)
         botoes.addStretch()
@@ -391,23 +386,24 @@ class ClaudiaQgisPlugin:
 
     def _sobre(self):
         dlg = QDialog(self.iface.mainWindow())
-        dlg.setWindowTitle("Sobre a ClaudIA QGIS")
+        dlg.setWindowTitle(t("sobre.titulo"))
         layout = QVBoxLayout(dlg)
         n = self.executor.comunidade["comandos_executados"] if self.executor else 0
         texto = QLabel(
-            f"<h3>ClaudIA QGIS {plugin_version()}</h3>"
-            "<p>Plugin da comunidade <b>agrônomo10X</b> (OagronomIA): a sua IA opera o QGIS.</p>"
-            f"<p>Código-fonte e licença (GPLv2+): <a href='{REPO_URL}'>{REPO_URL}</a></p>"
-            f"<p>Derivado de <b>QGIS MCP</b>, de Nicolas Karasiak (GPLv2+): "
-            f"<a href='{UPSTREAM_URL}'>{UPSTREAM_URL}</a>. Os handlers que executam os comandos "
-            "no QGIS são o trabalho dele; a ClaudIA QGIS troca o servidor local por uma conexão "
-            "com a comunidade.</p>"
-            f"<p>Estado: <b>{self._estado}</b> {self._detalhe} · {n} comando(s) nesta sessão</p>"
+            t(
+                "sobre.corpo",
+                versao=plugin_version(),
+                repo=REPO_URL,
+                upstream=UPSTREAM_URL,
+                estado=_estado_textos(self._estado)[2],
+                detalhe=self._detalhe,
+                n=n,
+            )
         )
         texto.setWordWrap(True)
         texto.setOpenExternalLinks(True)
         layout.addWidget(texto)
-        ok = QPushButton("Fechar")
+        ok = QPushButton(t("sobre.fechar"))
         ok.clicked.connect(dlg.accept)
         layout.addWidget(ok, alignment=_ALIGN_RIGHT)
         dlg.exec()
@@ -415,9 +411,26 @@ class ClaudiaQgisPlugin:
     def _abrir_dialogo(self):
         dlg = ConectarDialog(self.iface.mainWindow())
         if dlg.exec():
+            self._aplicar_idioma()
             self._desconectar()
             self.action.setChecked(True)
             self._conectar()
+
+    def _aplicar_idioma(self):
+        """(0.4.2) Retraduz o que fica na tela: menu, tooltip e barra de status.
+
+        As janelas nascem traduzidas a cada abertura; o worker recebe o idioma ao
+        (re)conectar.
+        """
+        for acao, chave in (
+            (self.conectar_action, "menu.conectar"),
+            (self.pagina_action, "menu.pagina"),
+            (self.atualizar_action, "menu.atualizar"),
+            (self.sobre_action, "menu.sobre"),
+        ):
+            if acao:
+                acao.setText(t(chave))
+        self._mostrar_estado(self._estado, self._detalhe)
 
     # ------------------------------------------------------------- conexão
     def _alternar(self, ligado):
@@ -443,7 +456,7 @@ class ClaudiaQgisPlugin:
         self.executor.ligar_log()
         self.executor.comunidade.update({"base_url": base, "estado": "conectando", "conectado": False})
 
-        self.worker = ComunidadeWorker(base, token, self._info_projeto())
+        self.worker = ComunidadeWorker(base, token, self._info_projeto(), idioma=i18n.idioma())
         self.thread = QThread()
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
@@ -464,7 +477,7 @@ class ClaudiaQgisPlugin:
             projeto.cleared.connect(self._atualizar_info)
 
         self._mostrar_estado("conectando", base)
-        QgsMessageLog.logMessage(f"Conectando à comunidade em {base}", LOG_TAG, MSG_INFO)
+        QgsMessageLog.logMessage(t("msg.conectando_log", base=base), LOG_TAG, MSG_INFO)
 
     def _desconectar(self):
         if self._timer_info:
@@ -488,7 +501,7 @@ class ClaudiaQgisPlugin:
                 with contextlib.suppress(Exception):
                     zumbi.finished.connect(zumbi.deleteLater)
                     zumbi.finished.connect(lambda z=zumbi: z in self._threads_zumbis and self._threads_zumbis.remove(z))
-                QgsMessageLog.logMessage("O worker demorou a parar; termina em segundo plano.", LOG_TAG, MSG_INFO)
+                QgsMessageLog.logMessage(t("msg.worker_demorou"), LOG_TAG, MSG_INFO)
             self.thread = None
         self.worker = None
         if self.executor:
@@ -514,7 +527,7 @@ class ClaudiaQgisPlugin:
         envelope = self.executor.executar({"type": comando.get("type"), "params": comando.get("params") or {}})
         worker.entregar_resultado(comando.get("id"), envelope)
         n = self.executor.comunidade["comandos_executados"]
-        self._mostrar_estado("conectado", f"{n} comando(s) · último: {comando.get('type')}")
+        self._mostrar_estado("conectado", t("estado.comandos", n=n, tipo=comando.get("type")))
 
     # ------------------------------------------------------------ atualização
     def _oferecer_atualizacao(self, info):
@@ -525,13 +538,13 @@ class ClaudiaQgisPlugin:
         self._versao_oferecida = versao
         try:
             barra = self.iface.messageBar()
-            w = barra.createMessage(LOG_TAG, f"Versão {versao} do plugin disponível (você está na {plugin_version()}).")
-            botao = QPushButton("Atualizar agora")
+            w = barra.createMessage(LOG_TAG, t("upd.disponivel", versao=versao, atual=plugin_version()))
+            botao = QPushButton(t("upd.botao"))
             botao.clicked.connect(functools.partial(self._atualizar, dict(info)))
             w.layout().addWidget(botao)
             barra.pushWidget(w, MSG_INFO)
         except Exception as e:  # sem barra (headless) — fica no log
-            QgsMessageLog.logMessage(f"Versão {versao} disponível em {info.get('url') or RELEASES_URL} ({e})", LOG_TAG, MSG_INFO)
+            QgsMessageLog.logMessage(t("upd.disponivel_log", versao=versao, url=info.get("url") or RELEASES_URL, erro=e), LOG_TAG, MSG_INFO)
 
     def _verificar_atualizacao(self):
         """Menu 'Atualizar o plugin…': consulta a comunidade agora."""
@@ -539,7 +552,7 @@ class ClaudiaQgisPlugin:
             info = updater.consultar_ultima(_base_url())
         except Exception as e:
             with contextlib.suppress(Exception):
-                self.iface.messageBar().pushWarning(LOG_TAG, f"Não consegui consultar a versão mais recente: {e}")
+                self.iface.messageBar().pushWarning(LOG_TAG, t("upd.consulta_falhou", erro=e))
             return
         versao = str(info.get("versao") or "")
         if versao and info.get("zip_url") and versao_tupla(versao) > versao_tupla(plugin_version()):
@@ -547,7 +560,7 @@ class ClaudiaQgisPlugin:
             self._oferecer_atualizacao(info)
         else:
             with contextlib.suppress(Exception):
-                self.iface.messageBar().pushInfo(LOG_TAG, f"Você já está na versão mais recente ({plugin_version()}).")
+                self.iface.messageBar().pushInfo(LOG_TAG, t("upd.ja_atual", versao=plugin_version()))
 
     def _atualizar(self, info):
         """Baixa o ZIP da release, valida, desconecta e troca o plugin (recarrega sozinho)."""
@@ -557,14 +570,14 @@ class ClaudiaQgisPlugin:
         versao = str(info.get("versao") or "?")
         try:
             with contextlib.suppress(Exception):
-                self.iface.messageBar().pushInfo(LOG_TAG, f"Baixando a versão {versao}…")
+                self.iface.messageBar().pushInfo(LOG_TAG, t("upd.baixando", versao=versao))
             caminho = updater.baixar_zip(str(info["zip_url"]))
             updater.validar_zip(caminho)
         except Exception as e:
             self._atualizando = False
-            QgsMessageLog.logMessage(f"Atualização falhou: {e!r}", LOG_TAG, MSG_CRITICAL)
+            QgsMessageLog.logMessage(t("upd.falhou_log", erro=repr(e)), LOG_TAG, MSG_CRITICAL)
             with contextlib.suppress(Exception):
-                self.iface.messageBar().pushCritical(LOG_TAG, f"Não consegui baixar a atualização: {e}. Baixe em {info.get('url') or RELEASES_URL}.")
+                self.iface.messageBar().pushCritical(LOG_TAG, t("upd.baixar_falhou", erro=e, url=info.get("url") or RELEASES_URL))
             return
         # a versão nova volta conectada com o mesmo token
         _set_cfg("reconectar_apos_update", bool(_cfg("token", "")))
@@ -583,9 +596,7 @@ class ClaudiaQgisPlugin:
             if not self._avisou_conexao:
                 self._avisou_conexao = True
                 with contextlib.suppress(Exception):
-                    self.iface.messageBar().pushSuccess(
-                        LOG_TAG, "Conectado à comunidade. Peça à sua IA: “lista as camadas do meu projeto”."
-                    )
+                    self.iface.messageBar().pushSuccess(LOG_TAG, t("msg.conectado"))
         elif estado == "sem_rede":
             self._mostrar_estado("sem_rede", detalhe)
             QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_WARNING)
@@ -594,19 +605,12 @@ class ClaudiaQgisPlugin:
             if not self._avisou_rede:
                 self._avisou_rede = True
                 with contextlib.suppress(Exception):
-                    self.iface.messageBar().pushWarning(
-                        LOG_TAG,
-                        f"Não consegui falar com a comunidade ({detalhe}). Vou continuar tentando; "
-                        "confira o endereço em Conectar à comunidade… → Avançado.",
-                    )
+                    self.iface.messageBar().pushWarning(LOG_TAG, t("msg.sem_rede", detalhe=detalhe))
         elif estado == "token_invalido":
             self._mostrar_estado("token_invalido")
             QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_CRITICAL)
             with contextlib.suppress(Exception):
-                self.iface.messageBar().pushCritical(
-                    LOG_TAG,
-                    "Token recusado pela comunidade. Gere um token novo na sua página e cole em Conectar à comunidade…",
-                )
+                self.iface.messageBar().pushCritical(LOG_TAG, t("msg.token_recusado"))
             self._desconectar()
             self._mostrar_estado("token_invalido")
 

@@ -27,6 +27,7 @@ import urllib.parse
 import zipfile
 
 from .constants import ENDPOINT_PLUGIN, LOG_TAG, PLUGIN_DIR, user_agent
+from .i18n import t
 
 NOME_PACOTE = os.path.basename(PLUGIN_DIR)  # claudia_qgis
 MAX_ZIP_BYTES = 20 * 1024 * 1024
@@ -61,9 +62,9 @@ def _abrir(url: str, headers: dict, timeout: int, *, so_https: bool) -> tuple[ht
         if resp.status != 200:
             resp.read()
             conn.close()
-            raise ValueError(f"HTTP {resp.status} ao buscar {u.netloc}{u.path}")
+            raise ValueError(t("upd.http", status=resp.status, onde=f"{u.netloc}{u.path}"))
         return conn, resp
-    raise ValueError("redirecionamentos demais")
+    raise ValueError(t("upd.redirecionamentos"))
 
 
 def consultar_ultima(base_url: str, timeout: int = 10) -> dict:
@@ -97,7 +98,7 @@ def instalar_e_recarregar_seguro(caminho_zip: str, iface=None) -> None:
 
             QgsMessageLog.logMessage(f"Atualização falhou: {e!r}", LOG_TAG, MSG_CRITICAL)
             if iface is not None:
-                iface.messageBar().pushCritical(LOG_TAG, f"A atualização falhou ({e}). Instale pelo ZIP em Complementos → Instalar a partir de um ZIP.")
+                iface.messageBar().pushCritical(LOG_TAG, t("upd.instalar_falhou", erro=e))
         return
     with contextlib.suppress(Exception):
         from qgis.core import QgsMessageLog
@@ -120,7 +121,7 @@ def _ssl():
 def baixar_zip(url: str, timeout: int = 60) -> str:
     """Baixa o ZIP para um arquivo temporário e devolve o caminho."""
     if not url.startswith("https://"):
-        raise ValueError("só baixo atualização por https")
+        raise ValueError(t("upd.so_https"))
     conn, resp = _abrir(url, {"User-Agent": user_agent(), "Accept": "application/octet-stream"}, timeout, so_https=True)
     fd, destino = tempfile.mkstemp(prefix="claudia_qgis-", suffix=".zip")
     try:
@@ -132,7 +133,7 @@ def baixar_zip(url: str, timeout: int = 60) -> str:
                     break
                 total += len(bloco)
                 if total > MAX_ZIP_BYTES:
-                    raise ValueError("ZIP maior que o esperado — abortei")
+                    raise ValueError(t("upd.zip_grande"))
                 f.write(bloco)
     except BaseException:
         with contextlib.suppress(OSError):
@@ -148,7 +149,7 @@ def validar_zip(caminho: str) -> str:
     with zipfile.ZipFile(caminho) as z:
         nomes = z.namelist()
         if f"{NOME_PACOTE}/metadata.txt" not in nomes or f"{NOME_PACOTE}/__init__.py" not in nomes:
-            raise ValueError("o ZIP não contém o plugin claudia_qgis")
+            raise ValueError(t("upd.zip_invalido"))
         for n in nomes:
             if n.startswith("/") or ".." in n.split("/"):
                 raise ValueError(f"caminho suspeito no ZIP: {n}")

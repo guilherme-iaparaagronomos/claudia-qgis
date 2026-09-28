@@ -34,6 +34,7 @@ from urllib.parse import urlsplit
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
 from .constants import MAX_RESULT_BYTES, plugin_version, user_agent, versao_tupla
+from .i18n import t
 
 POLL_TIMEOUT_S = 45  # a comunidade segura ~20 s; folga para rede lenta
 RESULT_TIMEOUT_S = 90  # resultados grandes (render em base64) sobem devagar
@@ -74,11 +75,14 @@ class ComunidadeWorker(QObject):
     # a comunidade anunciou versão do plugin maior que a instalada: {"versao", "zip_url", "url"}
     versao_disponivel = pyqtSignal(dict)
 
-    def __init__(self, base_url: str, token: str, info: dict):
+    def __init__(self, base_url: str, token: str, info: dict, idioma: str | None = None):
         super().__init__()
         self._base = base_url.rstrip("/")
         self._token = token
         self._info = dict(info)
+        # (0.4.2) idioma dos textos de estado, resolvido na thread principal — o
+        # worker não lê QgsSettings de dentro da própria thread
+        self._lang = idioma
         self._lock = threading.Lock()
         self._parar = threading.Event()
         self._resultados: queue.Queue = queue.Queue()
@@ -118,32 +122,32 @@ class ComunidadeWorker(QObject):
     # ---------------------------------------------------------- thread do worker
     def run(self):
         backoff = BACKOFF_INICIAL_S
-        self._emitir("conectando", "conectando à comunidade…")
+        self._emitir("conectando", self._t("worker.conectando"))
         while not self._parar.is_set():
             try:
                 with self._lock:
                     corpo = dict(self._info)
                 resposta = self._post("/api/qgis/poll", corpo, POLL_TIMEOUT_S)
             except TokenInvalido:
-                self._emitir("token_invalido", "token recusado pela comunidade (revogado ou errado)")
+                self._emitir("token_invalido", self._t("worker.token_recusado"))
                 break
             except (ErroRede, ErroHttp) as e:
                 if self._parar.is_set():
                     break
-                self._emitir("sem_rede", f"{e} — tentando de novo em {backoff} s")
+                self._emitir("sem_rede", self._t("worker.tentando", erro=e, segundos=backoff))
                 self._parar.wait(backoff)
                 backoff = min(backoff * 2, BACKOFF_MAX_S)
                 continue
             except Exception as e:  # nunca deixar a thread morrer em silêncio
                 if self._parar.is_set():
                     break
-                self._emitir("sem_rede", f"{type(e).__name__}: {e} — tentando de novo em {backoff} s")
+                self._emitir("sem_rede", self._t("worker.tentando", erro=f"{type(e).__name__}: {e}", segundos=backoff))
                 self._parar.wait(backoff)
                 backoff = min(backoff * 2, BACKOFF_MAX_S)
                 continue
 
             backoff = BACKOFF_INICIAL_S
-            self._emitir("conectado", "conectado à comunidade")
+            self._emitir("conectado", self._t("worker.conectado"))
             self._checar_versao(resposta.get("plugin_ultima") if isinstance(resposta, dict) else None)
             comando = resposta.get("comando") if isinstance(resposta, dict) else None
             if not comando or not isinstance(comando, dict):
@@ -158,7 +162,10 @@ class ComunidadeWorker(QObject):
                 break
             comando_id, envelope = item
             self._subir_resultado(comando_id, envelope)
-        self._emitir("parado", "desconectado")
+        self._emitir("parado", self._t("worker.desconectado"))
+
+    def _t(self, chave, **campos):
+        return t(chave, lang=self._lang, **campos)
 
     def _subir_resultado(self, comando_id, envelope):
         corpo = {"id": comando_id}
@@ -178,11 +185,11 @@ class ComunidadeWorker(QObject):
                 self._post_bruto("/api/qgis/result", dados, RESULT_TIMEOUT_S)
                 return
             except TokenInvalido:
-                self._emitir("token_invalido", "token recusado ao enviar o resultado")
+                self._emitir("token_invalido", self._t("worker.token_resultado"))
                 return
             except Exception as e:
                 if tentativa == 2 or self._parar.is_set():
-                    self._emitir("sem_rede", f"não consegui enviar o resultado: {e}")
+                    self._emitir("sem_rede", self._t("worker.envio_falhou", erro=e))
                     return
                 self._parar.wait(2)
 
@@ -219,14 +226,14 @@ class ComunidadeWorker(QObject):
             if resp.status < 200 or resp.status >= 300:
                 trecho = payload[:120].decode("utf-8", "replace")
                 if b"<html" in payload[:400].lower():
-                    trecho = "página HTML (bloqueio de rede/WAF?)"
-                raise ErroHttp(f"HTTP {resp.status} em {caminho}: {trecho}")
+                    trecho = self._t("worker.html")
+                raise ErroHttp(self._t("worker.http", status=resp.status, caminho=caminho, trecho=trecho))
             if not payload:
                 return {}
             try:
                 return json.loads(payload.decode("utf-8"))
             except ValueError as e:
-                raise ErroHttp(f"resposta não é JSON em {caminho}: {e}") from None
+                raise ErroHttp(self._t("worker.nao_json", caminho=caminho, erro=e)) from None
         except (TokenInvalido, ErroHttp):
             raise
         except (OSError, socket.timeout, http.client.HTTPException, ssl.SSLError) as e:

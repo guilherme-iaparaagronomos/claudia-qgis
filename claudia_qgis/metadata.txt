@@ -3,8 +3,31 @@ name=ClaudIA QGIS
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 supportsQt6=True
-description=Sua IA (Claude, ChatGPT…) operando o QGIS pela comunidade agrônomo10X — Let your AI assistant operate QGIS through the agrônomo10X community
-about=ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
+description=Let your AI assistant (Claude, ChatGPT…) operate QGIS through the agrônomo10X community — Sua IA operando o QGIS pela comunidade agrônomo10X
+about=ClaudIA QGIS connects the QGIS running on your computer to the agrônomo10X
+    community (OagronomIA). Your AI assistant — Claude, ChatGPT or any MCP
+    client — gets 100+ tools to inspect and operate your project: layers,
+    attributes, Processing algorithms, styling, map rendering, print layouts
+    and more. No Python setup, no open ports: the plugin long-polls the
+    community over HTTPS and posts the results back.
+
+    Requires an agrônomo10X community account with ClaudIA QGIS enabled:
+    https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis
+
+    What the plugin sends to the community: the QGIS version, the name of the
+    open project and the results of the commands YOUR AI requests. Nothing
+    leaves without a command from you; the token can be revoked on your page
+    at any time. Interface in English or Brazilian Portuguese (follows the
+    QGIS language; selectable in the connection window).
+
+    Free software (GPLv2+). Derived from "QGIS MCP" by Nicolas Karasiak
+    (https://github.com/nkarasiak/qgis-mcp, GPLv2+): the command handlers that
+    run inside QGIS are his work; ClaudIA QGIS replaces the local socket
+    server with the community connection.
+
+    ---
+
+    ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
     agrônomo10X (OagronomIA). A sua IA — Claude, ChatGPT ou qualquer cliente
     MCP — recebe mais de 100 ferramentas para enxergar e operar o seu projeto:
     listar e adicionar camadas, ler atributos, rodar algoritmos do Processing,
@@ -18,23 +41,10 @@ about=ClaudIA QGIS conecta o QGIS aberto no seu computador à comunidade
     O que o plugin envia à comunidade: a versão do QGIS, o nome do projeto
     aberto e o resultado dos comandos que a SUA IA pedir. Nada sai sem um
     comando seu; o token pode ser revogado na sua página a qualquer momento.
+    Interface em inglês ou português do Brasil (segue o idioma do QGIS;
+    escolha na janela de conexão).
 
-    ---
-
-    ClaudIA QGIS connects the QGIS running on your computer to the agrônomo10X
-    community (OagronomIA). Your AI assistant — Claude, ChatGPT or any MCP
-    client — gets 100+ tools to inspect and operate your project: layers,
-    attributes, Processing algorithms, styling, map rendering, print layouts
-    and more. No Python setup, no open ports: the plugin long-polls the
-    community over HTTPS and posts the results back. Requires an agrônomo10X
-    community account with ClaudIA QGIS enabled.
-
-    Free software (GPLv2+). Derived from "QGIS MCP" by Nicolas Karasiak
-    (https://github.com/nkarasiak/qgis-mcp, GPLv2+): the command handlers that
-    run inside QGIS are his work; ClaudIA QGIS replaces the local socket
-    server with the community connection.
-
-version=0.4.1
+version=0.4.2
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -47,43 +57,47 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.1 : correção: "Atualizar agora" (e desconectar) podia fechar o QGIS
-    sem aviso — no Windows, fechar o socket de outra thread não acorda o
-    long-poll em curso; a thread passava do tempo de espera e era destruída
-    ainda rodando. Agora o socket é encerrado (shutdown) e a thread nunca é
-    destruída viva. Sem mudança nas ferramentas.
-    0.4.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.15.0 —
-    processamento em segundo plano (start_processing_job, get_processing_job,
-    cancel_processing_job: sem teto de tempo e sem travar o QGIS), checkpoints
-    do projeto (create_checkpoint, list_checkpoints, restore_checkpoint) e
-    export_session (script Python que refaz a sessão); resultado parcial ou
-    falha deixa de passar por sucesso (motivo do Processing, feições
-    descartadas em warnings); load_project não trava em camada indisponível;
-    crs em identify_features, sample_raster_values e add_features; ellipsoid
-    no Processing; QML inline em apply_style_qml. Inclui a 0.3.0 abaixo, que
-    não chegou ao portal.
-    0.3.0 : handlers atualizados para o nkarasiak/qgis-mcp v0.14.1 —
-    conversor de atributos com datas, correções em features, processing,
-    connections e system, enums que não resolvem não derrubam o plugin
-    (compat), e supportsQt6 declarado: as builds Qt6 do QGIS 3.x voltam a
-    carregar o plugin. execute_sql aceita limit.
-    0.2.3 : varredura de segurança do portal de plugins (Bandit) zerada:
-    a atualização baixa por http.client só em http/https (sem file: ou
-    esquemas customizados), seguindo o redirecionamento do GitHub; blocos
-    try/except vazios viram contextlib.suppress com a exceção certa.
-    0.2.2 : homepage do metadata aponta para o repositório público
-    (a página do conector na comunidade exige login; o revisor do portal
-    precisa de um link aberto). Sem mudança de código.
-    0.2.1 : o campo "Endereço da comunidade" aceita qualquer URL do
-    site (inclusive a da página do conector) e guarda só o domínio.
-    0.2.0 : atualização pelo próprio plugin — a comunidade anuncia a
-    versão mais recente a cada busca de comandos; quando há versão nova,
-    aparece a barra "Atualizar agora" (e o menu ganha "Atualizar o plugin…"):
-    o plugin baixa o ZIP da release, troca os arquivos e recarrega sozinho,
-    reconectando em seguida. Estado da conexão visível no botão da barra
-    ("ClaudIA · CONECTADO"), no ícone e na barra de status; aviso quando a
-    comunidade não responde.
-    0.1.0 : primeira versão — conexão com a comunidade agrônomo10X por
-    long-poll HTTPS (token do plugin gerado na página da comunidade), 120
-    comandos herdados do QGIS MCP 0.14.0 de Nicolas Karasiak, interface em
-    português, sem servidor local nem configuração de cliente MCP.
+changelog=0.4.2 : interface in English or Brazilian Portuguese — the plugin
+    follows the QGIS language (any language other than Portuguese shows
+    English) and the connection window has a language selector (Automatic /
+    Português / English). Plugin description and this changelog now in
+    English. No change to the tools.
+    0.4.1 : fix: "Update now" (and disconnect) could close QGIS without
+    warning — on Windows, closing the socket from another thread does not wake
+    the long-poll in progress; the thread outlived the wait timeout and was
+    destroyed while still running. The socket is now shut down and the thread
+    is never destroyed alive. No change to the tools.
+    0.4.0 : handlers updated to nkarasiak/qgis-mcp v0.15.0 — background
+    processing jobs (start_processing_job, get_processing_job,
+    cancel_processing_job: no time cap and QGIS does not freeze), project
+    checkpoints (create_checkpoint, list_checkpoints, restore_checkpoint) and
+    export_session (a Python script that replays the session); partial results
+    or failures no longer pass as success (Processing reason, dropped features
+    in warnings); load_project no longer hangs on an unavailable layer; crs in
+    identify_features, sample_raster_values and add_features; ellipsoid in
+    Processing; inline QML in apply_style_qml. Includes 0.3.0 below, which
+    never reached the portal.
+    0.3.0 : handlers updated to nkarasiak/qgis-mcp v0.14.1 — attribute
+    converter with dates, fixes in features, processing, connections and
+    system, unresolved enums no longer crash the plugin (compat), and
+    supportsQt6 declared: Qt6 builds of QGIS 3.x load the plugin again.
+    execute_sql accepts limit.
+    0.2.3 : plugin portal security scan (Bandit) cleared: the updater
+    downloads through http.client over http/https only (no file: or custom
+    schemes), following the GitHub redirect; empty try/except blocks became
+    contextlib.suppress with the right exception.
+    0.2.2 : metadata homepage points to the public repository (the connector
+    page in the community requires login; the portal reviewer needs an open
+    link). No code change.
+    0.2.1 : the "Community address" field accepts any URL of the site
+    (including the connector page) and keeps only the domain.
+    0.2.0 : self-update — the community announces the latest version on every
+    command poll; when there is a new one, an "Update now" bar appears (and the
+    menu gains "Update the plugin…"): the plugin downloads the release ZIP,
+    swaps the files and reloads itself, reconnecting afterwards. Connection
+    state visible on the toolbar button ("ClaudIA · CONNECTED"), on the icon
+    and in the status bar; warning when the community does not respond.
+    0.1.0 : first version — connection to the agrônomo10X community by HTTPS
+    long-poll (plugin token generated on the community page), 120 commands
+    inherited from QGIS MCP 0.14.0 by Nicolas Karasiak, interface in
+    Portuguese, no local server and no MCP client configuration.
