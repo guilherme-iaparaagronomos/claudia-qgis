@@ -3,56 +3,63 @@ name=ClaudIA QGIS
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 supportsQt6=True
-description=Your AI (Claude, ChatGPT…) operating QGIS — Sua IA operando o QGIS
-about=Your AI (Claude, ChatGPT or any MCP client) operates the QGIS open on
-    your computer: layers, attributes, Processing, styles and print layouts.
+description=Your AI (Claude, ChatGPT…) operating QGIS — English · Português · Español · Français
+about=🇺🇸 ENGLISH
+    Your AI (Claude, ChatGPT or any MCP-compatible AI) operates the QGIS open on your computer: layers, attributes, Processing, styles and print layouts.
 
     How to connect:
-    1. Generate the connection token on your ClaudIA QGIS page:
-    https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis
-    2. In QGIS: ClaudIA button → Connect to the community… → paste the token.
-    3. In your AI, add the connector
+    Step 1: Create your account (free) in the agrônomo10X community and generate the connection token:
+    https://comunidade.agronomos.ia.br/login
+    Step 2: In QGIS, click the ClaudIA button → Connect to the community… and paste the token.
+    Step 3: In your AI of choice, add a custom MCP connector with the link below and sign in with your community account:
     https://comunidade.agronomos.ia.br/api/mcp/qgis
-    and sign in with your community account.
 
-    Requires an agrônomo10X community account (Pro plan; new accounts get 7
-    days free, from any country). The plugin sends only the QGIS version, the name of the open
-    project and the results of the commands your AI requests. Revoke the
-    token at any time.
+    For more information, visit https://www.agronomos.ia.br/en
 
-    More: https://www.agronomos.ia.br
-
-    ---
-
-    A sua IA (Claude, ChatGPT ou qualquer cliente MCP) opera o QGIS aberto no
-    seu computador: camadas, atributos, Processing, estilos e layouts.
+    🇧🇷 PORTUGUÊS
+    A sua IA (Claude, ChatGPT ou outra IA compatível com MCP) opera o QGIS aberto no seu computador: camadas, atributos, Processing, estilos e layouts.
 
     Como conectar:
-    1. Gere o token de conexão na sua página da ClaudIA QGIS:
-    https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis
-    2. No QGIS: botão da ClaudIA → Conectar à comunidade… → cole o token.
-    3. Na sua IA, adicione o conector
+    Passo 1: Crie a sua conta (gratuita) na comunidade agrônomo10X e gere o token de conexão:
+    https://comunidade.agronomos.ia.br/login
+    Passo 2: No QGIS, clique no botão da ClaudIA → Conectar à comunidade… e cole o token.
+    Passo 3: Na sua IA de preferência, adicione um conector MCP personalizado com o link abaixo e entre com a sua conta da comunidade:
     https://comunidade.agronomos.ia.br/api/mcp/qgis
-    e entre com a sua conta da comunidade.
 
-    É preciso ter conta na comunidade agrônomo10X (plano Pro; conta nova tem
-    7 dias grátis, de qualquer país). O plugin envia só a versão do QGIS, o nome do projeto
-    aberto e o resultado dos comandos que a sua IA pedir. O token pode ser
-    revogado a qualquer momento.
+    Para mais informações, acesse https://www.agronomos.ia.br
 
-    Mais: https://www.agronomos.ia.br
+    🇪🇸 ESPAÑOL
+    Tu IA (Claude, ChatGPT u otra IA compatible con MCP) opera el QGIS abierto en tu computadora: capas, atributos, Processing, estilos y diseños de impresión.
 
-    ---
+    Cómo conectar:
+    Paso 1: Crea tu cuenta (gratuita) en la comunidad agrônomo10X y genera el token de conexión:
+    https://comunidade.agronomos.ia.br/login
+    Paso 2: En QGIS, haz clic en el botón de ClaudIA → Conectar con la comunidad… y pega el token.
+    Paso 3: En la IA que prefieras, agrega un conector MCP personalizado con el enlace de abajo y entra con tu cuenta de la comunidad:
+    https://comunidade.agronomos.ia.br/api/mcp/qgis
 
-    Free software (GPLv2+), derived from "QGIS MCP" by Nicolas Karasiak
-    (https://github.com/nkarasiak/qgis-mcp) — software livre, derivado do
-    QGIS MCP de Nicolas Karasiak.
+    Para más información, visita https://www.agronomos.ia.br/es
+
+    🇫🇷 FRANÇAIS
+    Votre IA (Claude, ChatGPT ou toute IA compatible MCP) pilote le QGIS ouvert sur votre ordinateur : couches, attributs, Processing, styles et mises en page.
+
+    Pour vous connecter :
+    Étape 1 : Créez votre compte (gratuit) dans la communauté agrônomo10X et générez le jeton de connexion :
+    https://comunidade.agronomos.ia.br/login
+    Étape 2 : Dans QGIS, cliquez sur le bouton ClaudIA → Se connecter à la communauté… et collez le jeton.
+    Étape 3 : Dans l'IA de votre choix, ajoutez un connecteur MCP personnalisé avec le lien ci-dessous et connectez-vous avec votre compte de la communauté :
+    https://comunidade.agronomos.ia.br/api/mcp/qgis
+
+    Pour plus d'informations, rendez-vous sur https://www.agronomos.ia.br/fr
+
+    LICENSE · LICENÇA · LICENCIA · LICENCE
+    Free software (GPLv2+), derived from "QGIS MCP" by Nicolas Karasiak (https://github.com/nkarasiak/qgis-mcp) — software livre · software libre · logiciel libre.
 
 version=0.4.3
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
-homepage=https://www.agronomos.ia.br
+homepage=https://github.com/guilherme-iaparaagronomos/claudia-qgis
 tracker=https://github.com/guilherme-iaparaagronomos/claudia-qgis/issues
 repository=https://github.com/guilherme-iaparaagronomos/claudia-qgis
 license=GPLv2+
@@ -61,12 +68,15 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.3 : command handlers updated to nkarasiak/qgis-mcp v0.15.1 —
-    PostGIS tables added by name (add_layer_from_connection) now load with
-    their geometry instead of as plain attribute tables. Shorter description
-    in English and Portuguese with the three connection steps; the welcome
-    window shows the connector address; link to www.agronomos.ia.br. No
-    change to the tools.
+changelog=0.4.3 : interface in English, Portuguese, Spanish and French — the
+    plugin follows the QGIS language (any other language shows English) and
+    the language selector has the four. Command handlers updated to
+    nkarasiak/qgis-mcp v0.15.1 — PostGIS tables added by name
+    (add_layer_from_connection) now load with their geometry instead of as
+    plain attribute tables. New plugin description: each language starts
+    with its flag and name, with the three connection steps; the welcome
+    window shows the connector address; the "Advanced" section (community
+    address) only appears for test setups. No change to the tools.
     0.4.2 : interface in English or Brazilian Portuguese — the plugin
     follows the QGIS language (any language other than Portuguese shows
     English) and the connection window has a language selector (Automatic /

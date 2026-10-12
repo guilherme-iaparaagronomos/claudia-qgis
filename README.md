@@ -60,7 +60,7 @@ claudia_qgis/
   server.py      # executor: valida {type, params} e chama o handler na thread principal
   handlers/      # os comandos, um módulo por domínio (herdados do QGIS MCP)
   registry.py    # @command + lista de comandos bloqueados em lote
-  i18n.py        # textos da interface (inglês e português)
+  i18n.py        # textos da interface (inglês, português, espanhol e francês)
 ```
 
 - Teste local: copie `claudia_qgis/` para

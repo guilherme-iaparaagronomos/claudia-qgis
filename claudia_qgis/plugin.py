@@ -149,9 +149,15 @@ class ConectarDialog(QDialog):
         self.autostart = QCheckBox(t("conectar.autostart"))
         self.autostart.setChecked(bool(_cfg("autostart", False, bool)))
         form.addRow("", self.autostart)
-        # (0.4.2) idioma da interface: automático (segue o QGIS), português ou inglês
+        # (0.4.2) idioma da interface: automático (segue o QGIS) ou um dos quatro (12/10: es e fr)
         self.idioma = QComboBox()
-        for valor, chave in ((i18n.AUTO, "conectar.idioma.auto"), (i18n.PT, "conectar.idioma.pt"), (i18n.EN, "conectar.idioma.en")):
+        for valor, chave in (
+            (i18n.AUTO, "conectar.idioma.auto"),
+            (i18n.PT, "conectar.idioma.pt"),
+            (i18n.EN, "conectar.idioma.en"),
+            (i18n.ES, "conectar.idioma.es"),
+            (i18n.FR, "conectar.idioma.fr"),
+        ):
             self.idioma.addItem(t(chave), valor)
         self.idioma.setCurrentIndex(max(0, self.idioma.findData(i18n.idioma_configurado())))
         form.addRow(t("conectar.idioma"), self.idioma)
@@ -166,6 +172,10 @@ class ConectarDialog(QDialog):
         dica = QLabel(t("conectar.endereco_dica"))
         dica.setStyleSheet("color: gray")
         av_layout.addRow("", dica)
+        # (12/10) o endereço da comunidade só serve para a equipe testar: some da janela, a menos que o
+        # endereço salvo não seja o oficial (quem salvou um errado consegue corrigir) ou que a variável
+        # CLAUDIA_QGIS_TESTES esteja ligada
+        avancado.setVisible(_base_url() != DEFAULT_BASE_URL or bool(os.environ.get("CLAUDIA_QGIS_TESTES")))
         layout.addWidget(avancado)
         self._avancado = avancado
 

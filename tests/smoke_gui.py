@@ -68,6 +68,37 @@ i18n.idioma = lambda: i18n.PT
 plugin._aplicar_idioma()
 assert plugin.conectar_action.text() == "Conectar à comunidade…"
 
+# (12/10) espanhol e francês também retraduzem na hora
+for lang, esperado in ((i18n.ES, "Conectar con la comunidad…"), (i18n.FR, "Se connecter à la communauté…")):
+    i18n.idioma = lambda lang=lang: lang
+    plugin._aplicar_idioma()
+    assert plugin.conectar_action.text() == esperado, plugin.conectar_action.text()
+i18n.idioma = lambda: i18n.PT
+plugin._aplicar_idioma()
+print("  ok  idioma: es e fr retraduzem menu e botão")
+
+# (12/10) "Automático" = o idioma do QGIS (o da instalação/opções) ou, sem escolha, o do sistema;
+# língua fora das quatro → inglês. Mexe nas opções do perfil do QGIS e devolve como estavam.
+from qgis.core import QgsSettings  # noqa: E402
+
+_s = QgsSettings()
+_antes = {k: _s.value(k) for k in ("locale/overrideFlag", "locale/userLocale")}
+try:
+    for loc, esperado in (
+        ("pt_BR", i18n.PT), ("pt_PT", i18n.PT), ("es_AR", i18n.ES), ("es_ES", i18n.ES), ("fr_CA", i18n.FR),
+        ("fr_FR", i18n.FR), ("en_US", i18n.EN), ("de_DE", i18n.EN), ("zh_CN", i18n.EN), ("it_IT", i18n.EN),
+    ):
+        _s.setValue("locale/overrideFlag", True)
+        _s.setValue("locale/userLocale", loc)
+        assert i18n.idioma_do_qgis() == esperado, (loc, i18n.idioma_do_qgis())
+finally:
+    for k, v in _antes.items():
+        if v is None:
+            _s.remove(k)
+        else:
+            _s.setValue(k, v)
+print("  ok  automático: pt/es/fr pelo idioma do QGIS; alemão, chinês, italiano → inglês")
+
 # atualização: oferta uma vez por versão; versão igual/menor não oferece
 from claudia_qgis import updater  # noqa: E402
 from claudia_qgis.constants import plugin_version, versao_tupla  # noqa: E402
