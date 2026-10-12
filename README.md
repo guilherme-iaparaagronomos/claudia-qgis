@@ -8,7 +8,8 @@ Plugin da comunidade [agrônomo10X](https://www.agronomos.ia.br) (OagronomIA).
 ## Como conectar
 
 1. **QGIS 3.28 ou mais novo.** Complementos → Gerenciar e instalar complementos → procure
-   **ClaudIA QGIS** (marque "Mostrar também os complementos experimentais").
+   **ClaudIA QGIS** (em Configurações, marque "Show also Experimental Plugins" — no QGIS em
+   português a opção aparece em inglês).
 2. Gere o **token de conexão** na sua página da ClaudIA QGIS:
    <https://comunidade.agronomos.ia.br/solucoes/mcp/claudia-qgis>
 3. No QGIS: botão da ClaudIA na barra → **Conectar à comunidade…** → cole o token.
