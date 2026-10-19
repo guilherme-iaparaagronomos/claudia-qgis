@@ -17,6 +17,8 @@ SETTINGS_PREFIX = "claudia_qgis"
 # "Avançado" da janela de conexão (ambiente de desenvolvimento da equipe).
 DEFAULT_BASE_URL = "https://comunidade.agronomos.ia.br"
 PAGINA_CONECTOR = "/solucoes/mcp/claudia-qgis"
+# (P18) onde a pessoa sem acesso assina — a página dos planos da comunidade (pede login)
+PAGINA_PLANOS = "/planos"
 REPO_URL = "https://github.com/guilherme-iaparaagronomos/claudia-qgis"
 UPSTREAM_URL = "https://github.com/nkarasiak/qgis-mcp"
 

@@ -43,6 +43,7 @@ from .constants import (
     DEFAULT_BASE_URL,
     LOG_TAG,
     PAGINA_CONECTOR,
+    PAGINA_PLANOS,
     REPO_URL,
     RELEASES_URL,
     SETTINGS_PREFIX,
@@ -70,9 +71,11 @@ ESTADOS = {
     "conectando": ("#F9A825", False),
     "conectado": ("#52C937", True),
     "sem_rede": ("#F9A825", False),
+    # (P18) o token vale, falta o plano: laranja e negrito, diferente do amarelo da rede
+    "sem_acesso": ("#EF6C00", True),
     "token_invalido": ("#D32F2F", True),
 }
-_COR_TEXTO = {"#52C937": "#1B7F2A", "#F9A825": "#8A5A00", "#D32F2F": "#B71C1C", "#9E9E9E": "#616161"}
+_COR_TEXTO = {"#52C937": "#1B7F2A", "#F9A825": "#8A5A00", "#EF6C00": "#A84300", "#D32F2F": "#B71C1C", "#9E9E9E": "#616161"}
 
 
 def _estado_textos(estado):
@@ -228,6 +231,7 @@ class ClaudiaQgisPlugin:
         self._timer_info = None
         self._avisou_conexao = False
         self._avisou_rede = False
+        self._avisou_acesso = False
         self.atualizar_action = None
         self._versao_oferecida = None
         self._atualizando = False
@@ -523,6 +527,7 @@ class ClaudiaQgisPlugin:
         self._estado, self._detalhe = "parado", ""
         self._avisou_conexao = False
         self._avisou_rede = False
+        self._avisou_acesso = False
 
     def _atualizar_info(self, *_args):
         if self.worker:
@@ -595,6 +600,21 @@ class ClaudiaQgisPlugin:
         # fora deste objeto: o unloadPlugin vai descarregar o plugin atual
         QTimer.singleShot(0, functools.partial(updater.instalar_e_recarregar_seguro, caminho, self.iface))
 
+    def _avisar_sem_acesso(self):
+        """Barra 'Sem acesso à ClaudIA QGIS…' com o botão que abre os planos."""
+        try:
+            barra = self.iface.messageBar()
+            w = barra.createMessage(LOG_TAG, t("msg.sem_acesso"))
+            botao = QPushButton(t("msg.botao_planos"))
+            botao.clicked.connect(self._abrir_planos)
+            w.layout().addWidget(botao)
+            barra.pushWidget(w, MSG_WARNING)
+        except Exception as e:  # sem barra (headless) — fica no log
+            QgsMessageLog.logMessage(f"{t('msg.sem_acesso')} ({e})", LOG_TAG, MSG_WARNING)
+
+    def _abrir_planos(self):
+        QDesktopServices.openUrl(QUrl(_base_url() + PAGINA_PLANOS))
+
     def _estado_mudou(self, estado, detalhe):
         self._estado, self._detalhe = estado, detalhe
         if self.executor:
@@ -616,6 +636,14 @@ class ClaudiaQgisPlugin:
                 self._avisou_rede = True
                 with contextlib.suppress(Exception):
                     self.iface.messageBar().pushWarning(LOG_TAG, t("msg.sem_rede", detalhe=detalhe))
+        elif estado == "sem_acesso":
+            # (P18) o token vale e o plugin segue conferindo a cada minuto: ao assinar,
+            # volta a "conectado" sozinho. Aviso uma vez por conexão, com o caminho para assinar.
+            self._mostrar_estado("sem_acesso", detalhe)
+            QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_WARNING)
+            if not self._avisou_acesso:
+                self._avisou_acesso = True
+                self._avisar_sem_acesso()
         elif estado == "token_invalido":
             self._mostrar_estado("token_invalido")
             QgsMessageLog.logMessage(detalhe, LOG_TAG, MSG_CRITICAL)

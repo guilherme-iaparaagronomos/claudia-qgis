@@ -41,10 +41,18 @@ RESULT_TIMEOUT_S = 90  # resultados grandes (render em base64) sobem devagar
 ESPERA_RESULTADO_S = 330  # o servidor MCP desiste em ~300 s; o plugin um pouco depois
 BACKOFF_INICIAL_S = 2
 BACKOFF_MAX_S = 30
+# (P18) sem acesso, o token segue válido: confere de novo a cada minuto e reconecta
+# sozinho quando a pessoa assina (sem martelar a comunidade a cada 30 s)
+ESPERA_SEM_ACESSO_S = 60
 
 
 class TokenInvalido(Exception):
     """A comunidade respondeu 401: token revogado, vencido ou errado."""
+
+
+class SemAcesso(Exception):
+    """A comunidade respondeu 403: o token vale, mas a conta não tem a ClaudIA QGIS
+    (teste que acabou, plano sem a QGIS, pagamento atrasado). Volta sozinho ao assinar."""
 
 
 class ErroHttp(Exception):
@@ -70,7 +78,7 @@ class ComunidadeWorker(QObject):
 
     # comando vindo da comunidade: {"id", "type", "params"}
     comando_recebido = pyqtSignal(dict)
-    # estado: conectando | conectado | sem_rede | token_invalido | parado — e um detalhe legível
+    # estado: conectando | conectado | sem_rede | sem_acesso | token_invalido | parado — e um detalhe legível
     estado_mudou = pyqtSignal(str, str)
     # a comunidade anunciou versão do plugin maior que a instalada: {"versao", "zip_url", "url"}
     versao_disponivel = pyqtSignal(dict)
@@ -131,6 +139,13 @@ class ComunidadeWorker(QObject):
             except TokenInvalido:
                 self._emitir("token_invalido", self._t("worker.token_recusado"))
                 break
+            except SemAcesso:
+                if self._parar.is_set():
+                    break
+                self._emitir("sem_acesso", self._t("worker.sem_acesso"))
+                backoff = BACKOFF_INICIAL_S
+                self._parar.wait(ESPERA_SEM_ACESSO_S)
+                continue
             except (ErroRede, ErroHttp) as e:
                 if self._parar.is_set():
                     break
@@ -187,6 +202,9 @@ class ComunidadeWorker(QObject):
             except TokenInvalido:
                 self._emitir("token_invalido", self._t("worker.token_resultado"))
                 return
+            except SemAcesso:
+                self._emitir("sem_acesso", self._t("worker.sem_acesso"))
+                return
             except Exception as e:
                 if tentativa == 2 or self._parar.is_set():
                     self._emitir("sem_rede", self._t("worker.envio_falhou", erro=e))
@@ -223,6 +241,10 @@ class ComunidadeWorker(QObject):
             payload = resp.read()
             if resp.status == 401:
                 raise TokenInvalido()
+            # o 403 da comunidade é texto puro; página HTML com 403 é proteção de rede no
+            # caminho (WAF, proxy da empresa) e segue como falha de conexão comum
+            if resp.status == 403 and b"<html" not in payload[:400].lower():
+                raise SemAcesso()
             if resp.status < 200 or resp.status >= 300:
                 trecho = payload[:120].decode("utf-8", "replace")
                 if b"<html" in payload[:400].lower():
@@ -234,7 +256,7 @@ class ComunidadeWorker(QObject):
                 return json.loads(payload.decode("utf-8"))
             except ValueError as e:
                 raise ErroHttp(self._t("worker.nao_json", caminho=caminho, erro=e)) from None
-        except (TokenInvalido, ErroHttp):
+        except (TokenInvalido, SemAcesso, ErroHttp):
             raise
         except (OSError, socket.timeout, http.client.HTTPException, ssl.SSLError) as e:
             raise ErroRede(str(e) or type(e).__name__) from None
@@ -255,7 +277,8 @@ class ComunidadeWorker(QObject):
 
     def _emitir(self, estado, detalhe):
         # `conectado` a cada poll seria um sinal a cada 20 s à toa; só muda de estado
-        if estado == self._estado and estado in ("conectado", "conectando"):
+        # (sem_acesso idem: a cada minuto, sem repetir aviso nem linha no log)
+        if estado == self._estado and estado in ("conectado", "conectando", "sem_acesso"):
             return
         self._estado = estado
         self.estado_mudou.emit(estado, detalhe)

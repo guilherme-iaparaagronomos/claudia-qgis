@@ -52,6 +52,23 @@ for estado in ESTADOS:
     print("  ok ", estado, "→", plugin.action.text(), "|", plugin.tool_button.styleSheet()[:48])
 plugin._estado_mudou("conectado", "x")
 assert plugin.action.text() == "ClaudIA · CONECTADO"
+# (P18) sem acesso: rótulo próprio, UM aviso na barra com o botão dos planos, e o botão abre /planos
+from claudia_qgis import plugin as _mod_plugin  # noqa: E402
+
+_abertos = []
+_mod_plugin.QDesktopServices.openUrl = lambda url: _abertos.append(url.toString())
+iface.messageBar.reset_mock()
+plugin._estado_mudou("sem_acesso", "a comunidade respondeu: sem acesso à ClaudIA QGIS")
+assert plugin.action.text() == "ClaudIA · sem acesso", plugin.action.text()
+assert "não inclui a ClaudIA QGIS" in plugin.status_label.text(), plugin.status_label.text()
+assert iface.messageBar.return_value.pushWidget.call_count == 1
+plugin._estado_mudou("sem_acesso", "de novo")  # o worker não repete, mas a barra também não
+assert iface.messageBar.return_value.pushWidget.call_count == 1
+plugin._abrir_planos()
+assert _abertos == ["https://comunidade.agronomos.ia.br/planos"], _abertos
+plugin._estado_mudou("conectado", "x")
+assert plugin.action.text() == "ClaudIA · CONECTADO"
+print("  ok  sem acesso: rótulo, 1 aviso com o botão, /planos; volta a conectado")
 plugin._estado_mudou("sem_rede", "HTTP 429")
 assert "sem conexão" in plugin.action.text()
 

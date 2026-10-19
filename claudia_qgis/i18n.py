@@ -36,6 +36,8 @@ _EN = {
     "estado.conectado.texto": "connected to the community — your AI can now operate this QGIS",
     "estado.sem_rede.rotulo": "ClaudIA · no connection",
     "estado.sem_rede.texto": "no connection to the community (retrying)",
+    "estado.sem_acesso.rotulo": "ClaudIA · no access",
+    "estado.sem_acesso.texto": "your plan does not include ClaudIA QGIS (checking again every minute)",
     "estado.token_invalido.rotulo": "ClaudIA · token rejected",
     "estado.token_invalido.texto": "token rejected — generate a new one in the community",
     "estado.tooltip": "ClaudIA QGIS — {texto}",
@@ -115,6 +117,11 @@ _EN = {
         "Could not reach the community ({detalhe}). I will keep trying; "
         "check your internet connection."
     ),
+    "msg.sem_acesso": (
+        "No access to ClaudIA QGIS: your free trial ended or your plan does not include it. "
+        "Once you subscribe, this same token works again on its own, with no need to reconnect."
+    ),
+    "msg.botao_planos": "See the plans",
     "msg.token_recusado": (
         "Token rejected by the community. Generate a new token on your page and paste it in "
         "Connect to the community…"
@@ -138,6 +145,7 @@ _EN = {
     "worker.conectando": "connecting to the community…",
     "worker.token_recusado": "token rejected by the community (revoked or wrong)",
     "worker.tentando": "{erro} — retrying in {segundos} s",
+    "worker.sem_acesso": "the community answered: no access to ClaudIA QGIS",
     "worker.conectado": "connected to the community",
     "worker.token_resultado": "token rejected while sending the result",
     "worker.envio_falhou": "could not send the result: {erro}",
@@ -156,6 +164,8 @@ _PT = {
     "estado.conectado.texto": "conectado à comunidade — a sua IA já pode operar este QGIS",
     "estado.sem_rede.rotulo": "ClaudIA · sem conexão",
     "estado.sem_rede.texto": "sem conexão com a comunidade (tentando de novo)",
+    "estado.sem_acesso.rotulo": "ClaudIA · sem acesso",
+    "estado.sem_acesso.texto": "o seu plano não inclui a ClaudIA QGIS (conferindo de novo a cada minuto)",
     "estado.token_invalido.rotulo": "ClaudIA · token recusado",
     "estado.token_invalido.texto": "token recusado — gere outro na comunidade",
     "estado.tooltip": "ClaudIA QGIS — {texto}",
@@ -231,6 +241,11 @@ _PT = {
         "Não consegui falar com a comunidade ({detalhe}). Vou continuar tentando; "
         "confira a sua conexão com a internet."
     ),
+    "msg.sem_acesso": (
+        "Sem acesso à ClaudIA QGIS: o teste grátis acabou ou o seu plano não inclui a QGIS. "
+        "Ao assinar, este mesmo token volta a funcionar sozinho, sem precisar conectar de novo."
+    ),
+    "msg.botao_planos": "Ver os planos",
     "msg.token_recusado": (
         "Token recusado pela comunidade. Gere um token novo na sua página e cole em "
         "Conectar à comunidade…"
@@ -252,6 +267,7 @@ _PT = {
     "worker.conectando": "conectando à comunidade…",
     "worker.token_recusado": "token recusado pela comunidade (revogado ou errado)",
     "worker.tentando": "{erro} — tentando de novo em {segundos} s",
+    "worker.sem_acesso": "a comunidade respondeu: sem acesso à ClaudIA QGIS",
     "worker.conectado": "conectado à comunidade",
     "worker.token_resultado": "token recusado ao enviar o resultado",
     "worker.envio_falhou": "não consegui enviar o resultado: {erro}",
@@ -271,6 +287,8 @@ _ES = {
     'estado.conectado.texto': 'conectado a la comunidad — tu IA ya puede operar este QGIS',
     'estado.sem_rede.rotulo': 'ClaudIA · sin conexión',
     'estado.sem_rede.texto': 'sin conexión con la comunidad (reintentando)',
+    'estado.sem_acesso.rotulo': 'ClaudIA · sin acceso',
+    'estado.sem_acesso.texto': 'tu plan no incluye ClaudIA QGIS (volviendo a comprobar cada minuto)',
     'estado.token_invalido.rotulo': 'ClaudIA · token rechazado',
     'estado.token_invalido.texto': 'token rechazado — genera uno nuevo en la comunidad',
     'estado.tooltip': 'ClaudIA QGIS — {texto}',
@@ -311,6 +329,8 @@ _ES = {
     'msg.worker_demorou': 'La conexión tardó en detenerse; termina en segundo plano.',
     'msg.conectado': 'Conectado a la comunidad. Pídele a tu IA: “lista las capas de mi proyecto”.',
     'msg.sem_rede': 'No pude comunicarme con la comunidad ({detalhe}). Seguiré intentando; revisa tu conexión a internet.',
+    'msg.sem_acesso': 'Sin acceso a ClaudIA QGIS: tu prueba gratuita terminó o tu plan no la incluye. Al suscribirte, este mismo token vuelve a funcionar solo, sin necesidad de conectar de nuevo.',
+    'msg.botao_planos': 'Ver los planes',
     'msg.token_recusado': 'Token rechazado por la comunidad. Genera un token nuevo en tu página y pégalo en Conectar con la comunidad…',
     'upd.disponivel': 'Versión {versao} del complemento disponible (tienes la {atual}).',
     'upd.botao': 'Actualizar ahora',
@@ -329,6 +349,7 @@ _ES = {
     'worker.conectando': 'conectando con la comunidad…',
     'worker.token_recusado': 'token rechazado por la comunidad (revocado o incorrecto)',
     'worker.tentando': '{erro} — reintentando en {segundos} s',
+    'worker.sem_acesso': 'la comunidad respondió: sin acceso a ClaudIA QGIS',
     'worker.conectado': 'conectado a la comunidad',
     'worker.token_resultado': 'token rechazado al enviar el resultado',
     'worker.envio_falhou': 'no pude enviar el resultado: {erro}',
@@ -347,6 +368,8 @@ _FR = {
     'estado.conectado.texto': 'connecté à la communauté — votre IA peut maintenant piloter ce QGIS',
     'estado.sem_rede.rotulo': 'ClaudIA · pas de connexion',
     'estado.sem_rede.texto': 'pas de connexion avec la communauté (nouvelle tentative)',
+    'estado.sem_acesso.rotulo': "ClaudIA · pas d'accès",
+    'estado.sem_acesso.texto': "votre offre n'inclut pas ClaudIA QGIS (nouvelle vérification chaque minute)",
     'estado.token_invalido.rotulo': 'ClaudIA · jeton refusé',
     'estado.token_invalido.texto': 'jeton refusé — générez-en un nouveau dans la communauté',
     'estado.tooltip': 'ClaudIA QGIS — {texto}',
@@ -387,6 +410,8 @@ _FR = {
     'msg.worker_demorou': "La connexion a mis du temps à s'arrêter\xa0; elle se termine en arrière-plan.",
     'msg.conectado': 'Connecté à la communauté. Demandez à votre IA\xa0: «\xa0liste les couches de mon projet\xa0».',
     'msg.sem_rede': "Impossible de joindre la communauté ({detalhe}). Je continue d'essayer\xa0; vérifiez votre connexion Internet.",
+    'msg.sem_acesso': "Pas d'accès à ClaudIA QGIS\xa0: votre essai gratuit est terminé ou votre offre ne l'inclut pas. Dès que vous vous abonnez, ce même jeton fonctionne à nouveau tout seul, sans vous reconnecter.",
+    'msg.botao_planos': 'Voir les offres',
     'msg.token_recusado': 'Jeton refusé par la communauté. Générez un nouveau jeton sur votre page et collez-le dans Se connecter à la communauté…',
     'upd.disponivel': "Version {versao} de l'extension disponible (vous avez la {atual}).",
     'upd.botao': 'Mettre à jour',
@@ -405,6 +430,7 @@ _FR = {
     'worker.conectando': 'connexion à la communauté…',
     'worker.token_recusado': 'jeton refusé par la communauté (révoqué ou incorrect)',
     'worker.tentando': '{erro} — nouvelle tentative dans {segundos} s',
+    'worker.sem_acesso': "la communauté a répondu\xa0: pas d'accès à ClaudIA QGIS",
     'worker.conectado': 'connecté à la communauté',
     'worker.token_resultado': "jeton refusé lors de l'envoi du résultat",
     'worker.envio_falhou': "impossible d'envoyer le résultat\xa0: {erro}",
