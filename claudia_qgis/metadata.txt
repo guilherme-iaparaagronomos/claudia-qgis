@@ -55,7 +55,7 @@ about=🇺🇸 ENGLISH
     LICENSE · LICENÇA · LICENCIA · LICENCE
     Free software (GPLv2+), derived from "QGIS MCP" by Nicolas Karasiak (https://github.com/nkarasiak/qgis-mcp) — software livre · software libre · logiciel libre.
 
-version=0.4.3
+version=0.4.4
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -68,7 +68,20 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.3 : interface in English, Portuguese, Spanish and French — the
+changelog=0.4.4 : free trial by requests — when the community counts the free trial in
+    requests (a request is what you ask your AI, however many tools it uses),
+    the toolbar button and the status bar show the free requests left, the menu
+    shows them with the trial end date, the message bar warns when 2 or fewer
+    are left and, at zero, shows a "See the plans" button; with a plan that
+    includes ClaudIA QGIS the menu says "Unlimited requests". New "no access"
+    state: when the account no longer has ClaudIA QGIS (free trial ended, plan
+    without it, payment overdue), the button shows "ClaudIA · no access" in
+    orange instead of "no connection", the message bar explains it with a "See
+    the plans" button, and the plugin reconnects on its own, with the same
+    token, as soon as the access comes back. Texts in English, Portuguese,
+    Spanish and French. Command handlers unchanged (nkarasiak/qgis-mcp v0.15.2
+    reviewed: nothing to port). No change to the tools.
+    0.4.3 : interface in English, Portuguese, Spanish and French — the
     plugin follows the QGIS language (any other language shows English) and
     the language selector has the four. Command handlers updated to
     nkarasiak/qgis-mcp v0.15.1 — PostGIS tables added by name

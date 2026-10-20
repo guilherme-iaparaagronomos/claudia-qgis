@@ -9,6 +9,10 @@ publicar, a seção ganha o número da versão e vai para o `changelog` do `meta
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.4.4
+
 - New "no access" state. When the community refuses the connection because the account no longer
   has ClaudIA QGIS (free trial ended, plan without it, payment overdue), the toolbar button shows
   "ClaudIA · no access" in orange instead of "no connection", and the message bar explains it with
