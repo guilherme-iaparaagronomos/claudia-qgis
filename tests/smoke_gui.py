@@ -43,6 +43,11 @@ iface.pluginMenu.return_value = menu_plugins
 plugin = ClaudiaQgisPlugin(iface)
 plugin.initGui()
 assert plugin.action is not None and plugin.tool_button is not None and plugin.status_label is not None
+# (0.4.5) a linha dos pedidos está nos DOIS menus: o do botão e Complementos → ClaudIA QGIS
+_no_menu_complementos = [c.args[1] for c in iface.addPluginToMenu.call_args_list]
+assert plugin.plano_action in _no_menu_complementos, "a linha dos pedidos não entrou no menu Complementos"
+assert _no_menu_complementos.index(plugin.plano_action) == 1, "logo abaixo de 'ClaudIA · CONECTADO'"
+assert plugin.plano_action in plugin.tool_button.menu().actions()
 assert "ClaudIA" in plugin.status_label.text()
 for estado in ESTADOS:
     plugin._mostrar_estado(estado, "detalhe de teste")
@@ -171,7 +176,9 @@ except Exception as e:
     assert not isinstance(e, AssertionError), e
     print("  ok  validar_zip recusa arquivo que não é o plugin")
 assert plugin.atualizar_action is not None
+_plano = plugin.plano_action
 plugin.unload()
 assert plugin.status_label is None and plugin.action is None
+assert any(c.args[1] is _plano for c in iface.removePluginMenu.call_args_list), "a linha dos pedidos sai do menu Complementos no unload"
 print("\nTUDO OK")
 app.exitQgis()

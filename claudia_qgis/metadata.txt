@@ -55,7 +55,7 @@ about=🇺🇸 ENGLISH
     LICENSE · LICENÇA · LICENCIA · LICENCE
     Free software (GPLv2+), derived from "QGIS MCP" by Nicolas Karasiak (https://github.com/nkarasiak/qgis-mcp) — software livre · software libre · logiciel libre.
 
-version=0.4.4
+version=0.4.5
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -68,7 +68,11 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.4 : free trial by requests — when the community counts the free trial in
+changelog=0.4.5 : the free-requests line also shows in the Plugins menu
+    (Plugins → ClaudIA QGIS), right below the connection status — in 0.4.4 it
+    was only in the toolbar button menu. Includes 0.4.4 below, which never
+    reached the portal.
+    0.4.4 : free trial by requests — when the community counts the free trial in
     requests (a request is what you ask your AI, however many tools it uses),
     the toolbar button and the status bar show the free requests left, the menu
     shows them with the trial end date, the message bar warns when 2 or fewer

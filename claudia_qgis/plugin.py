@@ -334,6 +334,8 @@ class ClaudiaQgisPlugin:
         self._mostrar_estado("parado")
 
         self.iface.addPluginToMenu(MENU, self.action)
+        # (0.4.5) a linha dos pedidos também no menu Complementos → ClaudIA QGIS (na 0.4.4 só no menu do botão)
+        self.iface.addPluginToMenu(MENU, self.plano_action)
         self.iface.addPluginToMenu(MENU, self.conectar_action)
         self.iface.addPluginToMenu(MENU, self.pagina_action)
         self.iface.addPluginToMenu(MENU, self.atualizar_action)
@@ -368,7 +370,7 @@ class ClaudiaQgisPlugin:
                 self.action.triggered.disconnect(self._alternar)
             self.iface.removePluginMenu(MENU, self.action)
             self.action = None
-        for a in (self.conectar_action, self.pagina_action, self.atualizar_action, self.sobre_action):
+        for a in (self.plano_action, self.conectar_action, self.pagina_action, self.atualizar_action, self.sobre_action):
             if a:
                 self.iface.removePluginMenu(MENU, a)
         self.conectar_action = self.pagina_action = self.atualizar_action = self.sobre_action = None

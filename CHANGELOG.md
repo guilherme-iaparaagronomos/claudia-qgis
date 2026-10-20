@@ -11,6 +11,12 @@ publicar, a seção ganha o número da versão e vai para o `changelog` do `meta
 
 Nothing yet.
 
+## 0.4.5
+
+- The free-requests line also shows in the Plugins menu (Plugins → ClaudIA QGIS), right below the
+  connection status. In 0.4.4 it was only in the toolbar button menu. Includes 0.4.4 below, which
+  never reached the QGIS plugin portal.
+
 ## 0.4.4
 
 - New "no access" state. When the community refuses the connection because the account no longer
