@@ -153,6 +153,21 @@ _EN = {
     "worker.html": "HTML page (network block/WAF?)",
     "worker.http": "HTTP {status} at {caminho}: {trecho}",
     "worker.nao_json": "response is not JSON at {caminho}: {erro}",
+    # (0.4.4) teste grátis por PEDIDOS: o que a comunidade conta (no botão, no menu e na barra)
+    "plano.pedidos": "{r} of {t} free requests left",
+    "plano.ilimitado": "unlimited requests",
+    "plano.dias": "free trial until {data}",
+    "plano.menu_pedidos": "Free trial: {r} of {t} requests left · until {data}",
+    "plano.menu_ilimitado": "Unlimited requests — ClaudIA QGIS is in your plan",
+    "plano.menu_dias": "Free trial until {data}",
+    "msg.poucos_pedidos": (
+        "ClaudIA QGIS: {r} free request(s) left in your trial. Each request is whatever you ask "
+        "your AI, however many tools it uses."
+    ),
+    "msg.pedidos_acabaram": (
+        "You used your {t} free ClaudIA QGIS requests. To keep going with no request limit, "
+        "subscribe — this same token works again on its own."
+    ),
 }
 
 _PT = {
@@ -275,6 +290,20 @@ _PT = {
     "worker.html": "página HTML (bloqueio de rede/WAF?)",
     "worker.http": "HTTP {status} em {caminho}: {trecho}",
     "worker.nao_json": "resposta não é JSON em {caminho}: {erro}",
+    "plano.pedidos": "restam {r} de {t} pedidos grátis",
+    "plano.ilimitado": "pedidos ilimitados",
+    "plano.dias": "teste grátis até {data}",
+    "plano.menu_pedidos": "Teste grátis: {r} de {t} pedidos restantes · até {data}",
+    "plano.menu_ilimitado": "Pedidos ilimitados — a ClaudIA QGIS está no seu plano",
+    "plano.menu_dias": "Teste grátis até {data}",
+    "msg.poucos_pedidos": (
+        "ClaudIA QGIS: restam {r} pedido(s) grátis no seu teste. Cada pedido é o que você pede "
+        "à sua IA, use quantas ferramentas ela precisar."
+    ),
+    "msg.pedidos_acabaram": (
+        "Você usou os {t} pedidos grátis da ClaudIA QGIS. Para continuar sem limite de pedidos, "
+        "assine — este mesmo token volta a funcionar sozinho."
+    ),
 }
 
 # (12/10) espanhol e francês: as mesmas chaves (tests/i18n_check.py)
@@ -357,6 +386,20 @@ _ES = {
     'worker.html': 'página HTML (¿bloqueo de red/WAF?)',
     'worker.http': 'HTTP {status} en {caminho}: {trecho}',
     'worker.nao_json': 'la respuesta no es JSON en {caminho}: {erro}',
+    'plano.pedidos': 'quedan {r} de {t} pedidos gratis',
+    'plano.ilimitado': 'pedidos ilimitados',
+    'plano.dias': 'prueba gratis hasta el {data}',
+    'plano.menu_pedidos': 'Prueba gratis: quedan {r} de {t} pedidos · hasta el {data}',
+    'plano.menu_ilimitado': 'Pedidos ilimitados — ClaudIA QGIS está en tu plan',
+    'plano.menu_dias': 'Prueba gratis hasta el {data}',
+    'msg.poucos_pedidos': (
+        'ClaudIA QGIS: te quedan {r} pedido(s) gratis en tu prueba. Cada pedido es lo que le pides '
+        'a tu IA, con todas las herramientas que necesite.'
+    ),
+    'msg.pedidos_acabaram': (
+        'Usaste los {t} pedidos gratis de ClaudIA QGIS. Para seguir sin límite de pedidos, '
+        'suscríbete: este mismo token vuelve a funcionar solo.'
+    ),
 }
 
 _FR = {
@@ -438,6 +481,20 @@ _FR = {
     'worker.html': 'page HTML (blocage réseau/WAF\xa0?)',
     'worker.http': 'HTTP {status} sur {caminho}\xa0: {trecho}',
     'worker.nao_json': "la réponse n'est pas du JSON sur {caminho}\xa0: {erro}",
+    'plano.pedidos': '{r}\xa0demandes gratuites sur {t} restantes',
+    'plano.ilimitado': 'demandes illimitées',
+    'plano.dias': "essai gratuit jusqu'au {data}",
+    'plano.menu_pedidos': "Essai gratuit\xa0: {r}\xa0demandes sur {t} restantes · jusqu'au {data}",
+    'plano.menu_ilimitado': 'Demandes illimitées — ClaudIA QGIS fait partie de votre offre',
+    'plano.menu_dias': "Essai gratuit jusqu'au {data}",
+    'msg.poucos_pedidos': (
+        "ClaudIA QGIS\xa0: il vous reste {r}\xa0demande(s) gratuite(s) dans votre essai. Une demande, "
+        "c'est ce que vous demandez à votre IA, quel que soit le nombre d'outils utilisés."
+    ),
+    'msg.pedidos_acabaram': (
+        'Vous avez utilisé vos {t}\xa0demandes gratuites de ClaudIA QGIS. Pour continuer sans limite '
+        'de demandes, abonnez-vous\xa0: ce même jeton refonctionnera tout seul.'
+    ),
 }
 
 DICIONARIOS = {EN: _EN, PT: _PT, ES: _ES, FR: _FR}

@@ -15,6 +15,13 @@ publicar, a seção ganha o número da versão e vai para o `changelog` do `meta
   a "See the plans" button. The plugin keeps checking once a minute and reconnects on its own, with
   the same token, as soon as the access comes back. A 403 page in HTML (a network filter on the
   way) is still treated as a connection problem. Texts in English, Portuguese, Spanish and French.
+- Free trial by requests. When the community counts the free trial in requests (a request is
+  what you ask your AI, however many tools it uses), the toolbar button and the status bar show
+  "N of T free requests left", the menu shows the requests left and until when, the message bar
+  warns when 2 or fewer are left and, at zero, explains it with a "See the plans" button. With a
+  plan that includes ClaudIA QGIS the menu says "Unlimited requests"; the older trials by days show
+  "Free trial until dd/mm". The plugin only shows what the community sends — nothing is counted on
+  the user's machine. Texts in English, Portuguese, Spanish and French.
 - nkarasiak/qgis-mcp v0.15.2 reviewed: its changes are in the socket transport (port selection,
   port clash message), which this plugin does not use. No handler changed; nothing to port.
 

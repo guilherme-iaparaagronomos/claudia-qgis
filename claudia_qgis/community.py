@@ -82,6 +82,9 @@ class ComunidadeWorker(QObject):
     estado_mudou = pyqtSignal(str, str)
     # a comunidade anunciou versão do plugin maior que a instalada: {"versao", "zip_url", "url"}
     versao_disponivel = pyqtSignal(dict)
+    # (0.4.4) a situação da conta mudou: {"tipo": "pedidos", "total", "usados", "restantes", "ate"} no teste grátis
+    # por pedidos, {"tipo": "dias", "ate"} no teste antigo, {"tipo": "ilimitado"} com a QGIS no plano
+    plano_mudou = pyqtSignal(dict)
 
     def __init__(self, base_url: str, token: str, info: dict, idioma: str | None = None):
         super().__init__()
@@ -98,6 +101,7 @@ class ComunidadeWorker(QObject):
         self._ssl = _contexto_ssl()
         self._estado = None
         self._versao_avisada = None
+        self._plano_visto = None
 
     # ------------------------------------------------ chamados da thread principal
     def atualizar_info(self, **campos):
@@ -164,6 +168,7 @@ class ComunidadeWorker(QObject):
             backoff = BACKOFF_INICIAL_S
             self._emitir("conectado", self._t("worker.conectado"))
             self._checar_versao(resposta.get("plugin_ultima") if isinstance(resposta, dict) else None)
+            self._checar_plano(resposta.get("plano") if isinstance(resposta, dict) else None)
             comando = resposta.get("comando") if isinstance(resposta, dict) else None
             if not comando or not isinstance(comando, dict):
                 continue
@@ -274,6 +279,24 @@ class ComunidadeWorker(QObject):
             return
         self._versao_avisada = versao
         self.versao_disponivel.emit({"versao": versao, "zip_url": str(ultima["zip_url"]), "url": str(ultima.get("url") or "")})
+
+    def _checar_plano(self, plano):
+        """(0.4.4) Emite `plano_mudou` quando a situação da conta muda (pedidos usados, assinatura, fim do teste).
+
+        Servidor antigo não manda o campo: nada muda na interface.
+        """
+        if not isinstance(plano, dict) or plano.get("tipo") not in ("pedidos", "dias", "ilimitado"):
+            return
+        limpo = {"tipo": plano["tipo"]}
+        for campo in ("total", "usados", "restantes"):
+            if isinstance(plano.get(campo), int) and not isinstance(plano.get(campo), bool):
+                limpo[campo] = plano[campo]
+        if isinstance(plano.get("ate"), str):
+            limpo["ate"] = plano["ate"][:40]
+        if limpo == self._plano_visto:
+            return
+        self._plano_visto = limpo
+        self.plano_mudou.emit(limpo)
 
     def _emitir(self, estado, detalhe):
         # `conectado` a cada poll seria um sinal a cada 20 s à toa; só muda de estado

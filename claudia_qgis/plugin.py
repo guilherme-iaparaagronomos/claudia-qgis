@@ -6,7 +6,9 @@ Modificado por OagronomIA (2026-09-13) a partir de nkarasiak/qgis-mcp — GPLv2+
 """
 
 import contextlib
+from datetime import datetime, timedelta, timezone
 import functools
+import html
 import os
 
 from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsSettings
@@ -237,6 +239,10 @@ class ClaudiaQgisPlugin:
         self._atualizando = False
         # (0.4.1) threads que não pararam a tempo ficam aqui até terminar (nunca destruir QThread rodando)
         self._threads_zumbis = []
+        # (0.4.4) situação da conta vinda da comunidade (pedidos do teste grátis, ou sem limite) e a linha do menu
+        self._plano = None
+        self.plano_action = None
+        self._avisou_pedidos = None
 
     # --------------------------------------------------------------- ícones
     def _icone_base(self):
@@ -279,7 +285,7 @@ class ClaudiaQgisPlugin:
             self.status_label.setText(
                 f'<span style="color:{cor}; font-size:14px;">●</span> '
                 f'<b style="color:{_COR_TEXTO.get(cor, cor)};">ClaudIA QGIS</b>: {texto}'
-                + (f" <span style='color:#757575'>· {detalhe}</span>" if detalhe else "")
+                + (f" <span style='color:#757575'>· {html.escape(str(detalhe))}</span>" if detalhe else "")
             )
 
     # ------------------------------------------------------------------ gui
@@ -299,8 +305,14 @@ class ClaudiaQgisPlugin:
         self.atualizar_action.triggered.connect(self._verificar_atualizacao)
         self.sobre_action = QAction(t("menu.sobre"), self.iface.mainWindow())
         self.sobre_action.triggered.connect(self._sobre)
+        # (0.4.4) linha informativa no topo do menu: pedidos do teste grátis ou "pedidos ilimitados"
+        self.plano_action = QAction("", self.iface.mainWindow())
+        self.plano_action.setEnabled(False)
+        self.plano_action.setVisible(False)
 
         menu = QMenu()
+        menu.addAction(self.plano_action)
+        menu.addSeparator()
         menu.addAction(self.conectar_action)
         menu.addAction(self.pagina_action)
         menu.addSeparator()
@@ -360,6 +372,7 @@ class ClaudiaQgisPlugin:
             if a:
                 self.iface.removePluginMenu(MENU, a)
         self.conectar_action = self.pagina_action = self.atualizar_action = self.sobre_action = None
+        self.plano_action = None
         if self._toolbar_action:
             self.iface.pluginToolBar().removeAction(self._toolbar_action)
             self._toolbar_action = None
@@ -444,7 +457,8 @@ class ClaudiaQgisPlugin:
         ):
             if acao:
                 acao.setText(t(chave))
-        self._mostrar_estado(self._estado, self._detalhe)
+        self._atualizar_plano_ui()
+        self._mostrar_estado(self._estado, self._texto_plano() if self._estado == "conectado" else self._detalhe)
 
     # ------------------------------------------------------------- conexão
     def _alternar(self, ligado):
@@ -477,6 +491,7 @@ class ClaudiaQgisPlugin:
         self.worker.comando_recebido.connect(self._executar_comando, _QUEUED)
         self.worker.estado_mudou.connect(self._estado_mudou, _QUEUED)
         self.worker.versao_disponivel.connect(self._oferecer_atualizacao, _QUEUED)
+        self.worker.plano_mudou.connect(self._plano_mudou, _QUEUED)
         self.thread.start()
 
         # nome do projeto aberto acompanha o poll (aparece na página da comunidade)
@@ -528,6 +543,9 @@ class ClaudiaQgisPlugin:
         self._avisou_conexao = False
         self._avisou_rede = False
         self._avisou_acesso = False
+        self._plano = None
+        self._avisou_pedidos = None
+        self._atualizar_plano_ui()
 
     def _atualizar_info(self, *_args):
         if self.worker:
@@ -542,7 +560,9 @@ class ClaudiaQgisPlugin:
         envelope = self.executor.executar({"type": comando.get("type"), "params": comando.get("params") or {}})
         worker.entregar_resultado(comando.get("id"), envelope)
         n = self.executor.comunidade["comandos_executados"]
-        self._mostrar_estado("conectado", t("estado.comandos", n=n, tipo=comando.get("type")))
+        detalhe = t("estado.comandos", n=n, tipo=comando.get("type"))
+        plano = self._texto_plano()
+        self._mostrar_estado("conectado", f"{detalhe} · {plano}" if plano else detalhe)
 
     # ------------------------------------------------------------ atualização
     def _oferecer_atualizacao(self, info):
@@ -615,6 +635,73 @@ class ClaudiaQgisPlugin:
     def _abrir_planos(self):
         QDesktopServices.openUrl(QUrl(_base_url() + PAGINA_PLANOS))
 
+    # ------------------------------------------- pedidos do teste grátis (0.4.4)
+    @staticmethod
+    def _data_curta(iso):
+        """'2026-11-19T14:14:11+00:00' → '19/11' (en: '11/19'), no horário de Brasília."""
+        try:
+            d = datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=-3)))
+        except (TypeError, ValueError):
+            return str(iso)[:10]
+        return d.strftime("%m/%d") if i18n.idioma() == i18n.EN else d.strftime("%d/%m")
+
+    def _texto_plano(self):
+        """Texto curto da situação da conta para o botão e a barra de status ('' = nada a dizer)."""
+        p = self._plano
+        if not p:
+            return ""
+        if p.get("tipo") == "pedidos" and isinstance(p.get("restantes"), int) and isinstance(p.get("total"), int):
+            return t("plano.pedidos", r=p["restantes"], t=p["total"])
+        if p.get("tipo") == "ilimitado":
+            return t("plano.ilimitado")
+        if p.get("tipo") == "dias" and p.get("ate"):
+            return t("plano.dias", data=self._data_curta(p["ate"]))
+        return ""
+
+    def _atualizar_plano_ui(self):
+        """A linha do topo do menu: pedidos restantes e prazo, 'pedidos ilimitados' ou o prazo do teste antigo."""
+        if not self.plano_action:
+            return
+        p = self._plano
+        texto = ""
+        if p and p.get("tipo") == "pedidos" and isinstance(p.get("restantes"), int):
+            texto = t("plano.menu_pedidos", r=p["restantes"], t=p.get("total", "?"), data=self._data_curta(p.get("ate", "")))
+        elif p and p.get("tipo") == "ilimitado":
+            texto = t("plano.menu_ilimitado")
+        elif p and p.get("tipo") == "dias" and p.get("ate"):
+            texto = t("plano.menu_dias", data=self._data_curta(p["ate"]))
+        self.plano_action.setText(texto)
+        self.plano_action.setVisible(bool(texto))
+
+    def _plano_mudou(self, plano):
+        """A comunidade contou um pedido (ou a conta assinou): atualiza o botão, o menu e avisa nos últimos pedidos."""
+        self._plano = plano if isinstance(plano, dict) else None
+        self._atualizar_plano_ui()
+        if self._estado == "conectado":
+            self._mostrar_estado("conectado", self._texto_plano())
+        p = self._plano or {}
+        restantes, total = p.get("restantes"), p.get("total")
+        if p.get("tipo") != "pedidos" or not isinstance(restantes, int) or restantes > 2 or restantes == self._avisou_pedidos:
+            return
+        self._avisou_pedidos = restantes
+        if restantes == 0:
+            self._avisar_pedidos_acabaram(total)
+        else:
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushInfo(LOG_TAG, t("msg.poucos_pedidos", r=restantes))
+
+    def _avisar_pedidos_acabaram(self, total):
+        """Barra 'Você usou os N pedidos grátis…' com o botão que abre os planos."""
+        try:
+            barra = self.iface.messageBar()
+            w = barra.createMessage(LOG_TAG, t("msg.pedidos_acabaram", t=total))
+            botao = QPushButton(t("msg.botao_planos"))
+            botao.clicked.connect(self._abrir_planos)
+            w.layout().addWidget(botao)
+            barra.pushWidget(w, MSG_WARNING)
+        except Exception as e:  # sem barra (headless) — fica no log
+            QgsMessageLog.logMessage(f"{t('msg.pedidos_acabaram', t=total)} ({e})", LOG_TAG, MSG_WARNING)
+
     def _estado_mudou(self, estado, detalhe):
         self._estado, self._detalhe = estado, detalhe
         if self.executor:
@@ -622,7 +709,7 @@ class ClaudiaQgisPlugin:
         if not self.action:
             return
         if estado == "conectado":
-            self._mostrar_estado("conectado")
+            self._mostrar_estado("conectado", self._texto_plano())
             if not self._avisou_conexao:
                 self._avisou_conexao = True
                 with contextlib.suppress(Exception):

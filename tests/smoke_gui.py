@@ -72,6 +72,41 @@ print("  ok  sem acesso: rótulo, 1 aviso com o botão, /planos; volta a conecta
 plugin._estado_mudou("sem_rede", "HTTP 429")
 assert "sem conexão" in plugin.action.text()
 
+# (0.4.4) teste por pedidos: o que a comunidade manda aparece no menu, na barra de status e na barra de avisos
+plugin._estado_mudou("conectado", "x")
+assert not plugin.plano_action.isVisible(), "sem plano informado, a linha do menu fica escondida"
+iface.messageBar.reset_mock()
+_fim = "2026-11-19T17:00:00+00:00"
+plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 3, "restantes": 4, "ate": _fim})
+assert plugin.plano_action.isVisible()
+assert plugin.plano_action.text() == "Teste grátis: 4 de 7 pedidos restantes · até 19/11", plugin.plano_action.text()
+assert "restam 4 de 7 pedidos grátis" in plugin.status_label.text(), plugin.status_label.text()
+assert iface.messageBar.return_value.pushInfo.call_count == 0, "com 4 sobrando, nada de aviso"
+plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 5, "restantes": 2, "ate": _fim})
+plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 5, "restantes": 2, "ate": _fim})
+assert iface.messageBar.return_value.pushInfo.call_count == 1, "2 sobrando: um aviso só"
+plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 7, "restantes": 0, "ate": _fim})
+assert iface.messageBar.return_value.pushWidget.call_count == 1, "0 sobrando: barra com o botão dos planos"
+assert "restam 0 de 7" in plugin.status_label.text()
+plugin._plano_mudou({"tipo": "ilimitado"})
+assert plugin.plano_action.text() == "Pedidos ilimitados — a ClaudIA QGIS está no seu plano", plugin.plano_action.text()
+assert "pedidos ilimitados" in plugin.status_label.text()
+plugin._plano_mudou({"tipo": "dias", "ate": "2026-10-23T02:30:00+00:00"})
+assert plugin.plano_action.text() == "Teste grátis até 22/10", plugin.plano_action.text()  # 23h30 de 22/10 em Brasília
+plugin._mostrar_estado("conectado", "<b>x</b>")
+assert "&lt;b&gt;x&lt;/b&gt;" in plugin.status_label.text(), "o detalhe entra escapado no rótulo HTML"
+plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 6, "restantes": 1, "ate": _fim})
+i18n.idioma = lambda: i18n.EN
+plugin._aplicar_idioma()
+assert plugin.plano_action.text() == "Free trial: 1 of 7 requests left · until 11/19", plugin.plano_action.text()
+assert "1 of 7 free requests left" in plugin.status_label.text(), plugin.status_label.text()
+i18n.idioma = lambda: i18n.PT
+plugin._aplicar_idioma()
+plugin._desconectar()
+assert not plugin.plano_action.isVisible(), "desconectou: a linha do plano some"
+print("  ok  pedidos: menu, barra de status, aviso nos 2 últimos, botão no zero, ilimitado, dias, en, desconectar")
+plugin._estado_mudou("sem_rede", "HTTP 429")
+
 # (0.4.2) troca de idioma em tempo de execução: menu e estado retraduzidos
 i18n.idioma = lambda: i18n.EN
 plugin._aplicar_idioma()
