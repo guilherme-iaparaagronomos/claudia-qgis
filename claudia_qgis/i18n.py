@@ -161,7 +161,7 @@ _EN = {
     "plano.menu_ilimitado": "Unlimited requests — ClaudIA QGIS is in your plan",
     "plano.menu_dias": "Free trial until {data}",
     "msg.poucos_pedidos": (
-        "ClaudIA QGIS: {r} free request(s) left in your trial. Each request is whatever you ask "
+        "ClaudIA QGIS — free requests left in your trial: {r}. Each request is whatever you ask "
         "your AI, however many tools it uses."
     ),
     "msg.pedidos_acabaram": (
@@ -290,14 +290,14 @@ _PT = {
     "worker.html": "página HTML (bloqueio de rede/WAF?)",
     "worker.http": "HTTP {status} em {caminho}: {trecho}",
     "worker.nao_json": "resposta não é JSON em {caminho}: {erro}",
-    "plano.pedidos": "restam {r} de {t} pedidos grátis",
+    "plano.pedidos": "{r} de {t} pedidos grátis restantes",
     "plano.ilimitado": "pedidos ilimitados",
     "plano.dias": "teste grátis até {data}",
     "plano.menu_pedidos": "Teste grátis: {r} de {t} pedidos restantes · até {data}",
     "plano.menu_ilimitado": "Pedidos ilimitados — a ClaudIA QGIS está no seu plano",
     "plano.menu_dias": "Teste grátis até {data}",
     "msg.poucos_pedidos": (
-        "ClaudIA QGIS: restam {r} pedido(s) grátis no seu teste. Cada pedido é o que você pede "
+        "ClaudIA QGIS — pedidos grátis restantes no seu teste: {r}. Cada pedido é o que você pede "
         "à sua IA, use quantas ferramentas ela precisar."
     ),
     "msg.pedidos_acabaram": (
@@ -386,14 +386,14 @@ _ES = {
     'worker.html': 'página HTML (¿bloqueo de red/WAF?)',
     'worker.http': 'HTTP {status} en {caminho}: {trecho}',
     'worker.nao_json': 'la respuesta no es JSON en {caminho}: {erro}',
-    'plano.pedidos': 'quedan {r} de {t} pedidos gratis',
+    'plano.pedidos': '{r} de {t} pedidos gratis restantes',
     'plano.ilimitado': 'pedidos ilimitados',
     'plano.dias': 'prueba gratis hasta el {data}',
-    'plano.menu_pedidos': 'Prueba gratis: quedan {r} de {t} pedidos · hasta el {data}',
+    'plano.menu_pedidos': 'Prueba gratis: {r} de {t} pedidos restantes · hasta el {data}',
     'plano.menu_ilimitado': 'Pedidos ilimitados — ClaudIA QGIS está en tu plan',
     'plano.menu_dias': 'Prueba gratis hasta el {data}',
     'msg.poucos_pedidos': (
-        'ClaudIA QGIS: te quedan {r} pedido(s) gratis en tu prueba. Cada pedido es lo que le pides '
+        'ClaudIA QGIS — pedidos gratis restantes en tu prueba: {r}. Cada pedido es lo que le pides '
         'a tu IA, con todas las herramientas que necesite.'
     ),
     'msg.pedidos_acabaram': (
@@ -481,14 +481,14 @@ _FR = {
     'worker.html': 'page HTML (blocage réseau/WAF\xa0?)',
     'worker.http': 'HTTP {status} sur {caminho}\xa0: {trecho}',
     'worker.nao_json': "la réponse n'est pas du JSON sur {caminho}\xa0: {erro}",
-    'plano.pedidos': '{r}\xa0demandes gratuites sur {t} restantes',
+    'plano.pedidos': 'demandes gratuites restantes\xa0: {r} sur {t}',
     'plano.ilimitado': 'demandes illimitées',
     'plano.dias': "essai gratuit jusqu'au {data}",
-    'plano.menu_pedidos': "Essai gratuit\xa0: {r}\xa0demandes sur {t} restantes · jusqu'au {data}",
+    'plano.menu_pedidos': "Essai gratuit\xa0: {r} sur {t}\xa0demandes restantes · jusqu'au {data}",
     'plano.menu_ilimitado': 'Demandes illimitées — ClaudIA QGIS fait partie de votre offre',
     'plano.menu_dias': "Essai gratuit jusqu'au {data}",
     'msg.poucos_pedidos': (
-        "ClaudIA QGIS\xa0: il vous reste {r}\xa0demande(s) gratuite(s) dans votre essai. Une demande, "
+        "ClaudIA QGIS — demandes gratuites restantes dans votre essai\xa0: {r}. Une demande, "
         "c'est ce que vous demandez à votre IA, quel que soit le nombre d'outils utilisés."
     ),
     'msg.pedidos_acabaram': (

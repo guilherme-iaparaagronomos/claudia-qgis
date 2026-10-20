@@ -80,14 +80,14 @@ _fim = "2026-11-19T17:00:00+00:00"
 plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 3, "restantes": 4, "ate": _fim})
 assert plugin.plano_action.isVisible()
 assert plugin.plano_action.text() == "Teste grátis: 4 de 7 pedidos restantes · até 19/11", plugin.plano_action.text()
-assert "restam 4 de 7 pedidos grátis" in plugin.status_label.text(), plugin.status_label.text()
+assert "4 de 7 pedidos grátis restantes" in plugin.status_label.text(), plugin.status_label.text()
 assert iface.messageBar.return_value.pushInfo.call_count == 0, "com 4 sobrando, nada de aviso"
 plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 5, "restantes": 2, "ate": _fim})
 plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 5, "restantes": 2, "ate": _fim})
 assert iface.messageBar.return_value.pushInfo.call_count == 1, "2 sobrando: um aviso só"
 plugin._plano_mudou({"tipo": "pedidos", "total": 7, "usados": 7, "restantes": 0, "ate": _fim})
 assert iface.messageBar.return_value.pushWidget.call_count == 1, "0 sobrando: barra com o botão dos planos"
-assert "restam 0 de 7" in plugin.status_label.text()
+assert "0 de 7 pedidos grátis restantes" in plugin.status_label.text()
 plugin._plano_mudou({"tipo": "ilimitado"})
 assert plugin.plano_action.text() == "Pedidos ilimitados — a ClaudIA QGIS está no seu plano", plugin.plano_action.text()
 assert "pedidos ilimitados" in plugin.status_label.text()
