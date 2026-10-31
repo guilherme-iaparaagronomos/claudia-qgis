@@ -14,6 +14,9 @@ about=🇺🇸 ENGLISH
     Step 3: In your AI of choice, add a custom MCP connector with the link below and sign in with your community account:
     https://comunidade.agronomos.ia.br/api/mcp/qgis
 
+    Video tutorial, step by step:
+    https://www.youtube.com/watch?v=i3kPZWyq3Co
+
     For more information, visit https://www.agronomos.ia.br/en
 
     🇧🇷 PORTUGUÊS
@@ -25,6 +28,9 @@ about=🇺🇸 ENGLISH
     Passo 2: No QGIS, clique no botão da ClaudIA → Conectar à comunidade… e cole o token.
     Passo 3: Na sua IA de preferência, adicione um conector MCP personalizado com o link abaixo e entre com a sua conta da comunidade:
     https://comunidade.agronomos.ia.br/api/mcp/qgis
+
+    Tutorial em vídeo, passo a passo:
+    https://www.youtube.com/watch?v=lmy_FfK0x0o
 
     Para mais informações, acesse https://www.agronomos.ia.br
 
@@ -38,6 +44,9 @@ about=🇺🇸 ENGLISH
     Paso 3: En la IA que prefieras, agrega un conector MCP personalizado con el enlace de abajo y entra con tu cuenta de la comunidad:
     https://comunidade.agronomos.ia.br/api/mcp/qgis
 
+    Tutorial en video, paso a paso:
+    https://www.youtube.com/watch?v=SlVHErJsIGY
+
     Para más información, visita https://www.agronomos.ia.br/es
 
     🇫🇷 FRANÇAIS
@@ -50,12 +59,15 @@ about=🇺🇸 ENGLISH
     Étape 3 : Dans l'IA de votre choix, ajoutez un connecteur MCP personnalisé avec le lien ci-dessous et connectez-vous avec votre compte de la communauté :
     https://comunidade.agronomos.ia.br/api/mcp/qgis
 
+    Tutoriel vidéo, pas à pas :
+    https://www.youtube.com/watch?v=G2zVLVFMqKY
+
     Pour plus d'informations, rendez-vous sur https://www.agronomos.ia.br/fr
 
     LICENSE · LICENÇA · LICENCIA · LICENCE
     Free software (GPLv2+), derived from "QGIS MCP" by Nicolas Karasiak (https://github.com/nkarasiak/qgis-mcp) — software livre · software libre · logiciel libre.
 
-version=0.4.5
+version=0.4.6
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -68,7 +80,14 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.5 : the free-requests line also shows in the Plugins menu
+changelog=0.4.6 : video tutorial on how to connect, in English, Portuguese,
+    Spanish and French — in this description, in the menu (ClaudIA button and
+    Plugins → ClaudIA QGIS → "Video tutorial: how to connect", which opens the
+    video in the interface language) and as a button in the welcome window.
+    Safer "Update now": the plugin only downloads a ZIP published in the
+    releases of the ClaudIA QGIS repository on GitHub, and follows redirects
+    only to GitHub's download servers. No change to the tools.
+    0.4.5 : the free-requests line also shows in the Plugins menu
     (Plugins → ClaudIA QGIS), right below the connection status — in 0.4.4 it
     was only in the toolbar button menu. Includes 0.4.4 below, which never
     reached the portal.

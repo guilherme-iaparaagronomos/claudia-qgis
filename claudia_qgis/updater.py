@@ -20,13 +20,14 @@ import configparser
 import contextlib
 import http.client
 import os
+import re
 import shutil
 import ssl
 import tempfile
 import urllib.parse
 import zipfile
 
-from .constants import ENDPOINT_PLUGIN, LOG_TAG, PLUGIN_DIR, user_agent
+from .constants import ENDPOINT_PLUGIN, HOSTS_DOWNLOAD, LOG_TAG, PLUGIN_DIR, PREFIXO_RELEASES, user_agent
 from .i18n import t
 
 NOME_PACOTE = os.path.basename(PLUGIN_DIR)  # claudia_qgis
@@ -36,12 +37,46 @@ MAX_ZIP_BYTES = 20 * 1024 * 1024
 MAX_REDIRECIONAMENTOS = 5
 
 
-def _abrir(url: str, headers: dict, timeout: int, *, so_https: bool) -> tuple[http.client.HTTPConnection, http.client.HTTPResponse]:
+def url_de_release(url) -> bool:
+    """(0.4.6) O ZIP só vale se for release do nosso repositório:
+    ``<repo>/releases/download/<tag>/<arquivo>.zip``, sem ``?``, ``#``, ``.`` ou ``..``.
+
+    Mesma regra do servidor (``zipDoNossoRepo`` em lib/qgis/release-segura.ts).
+    """
+    if not isinstance(url, str) or not url.startswith(PREFIXO_RELEASES):
+        return False
+    resto = url[len(PREFIXO_RELEASES) :]
+    if not re.fullmatch(r"[\w.\-]+/[\w.\-]+\.zip", resto, flags=re.ASCII):
+        return False
+    return not any(parte in (".", "..") for parte in resto.split("/"))
+
+
+def _host_permitido(u: urllib.parse.SplitResult, hosts: tuple) -> bool:
+    """https, um dos ``hosts``, porta padrão e sem usuário/senha na URL."""
+    try:
+        porta = u.port
+    except ValueError:
+        return False
+    return (
+        u.scheme == "https"
+        and (u.hostname or "") in hosts
+        and porta in (None, 443)
+        and u.username is None
+        and u.password is None
+    )
+
+
+def _abrir(
+    url: str, headers: dict, timeout: int, *, so_https: bool, hosts: tuple | None = None
+) -> tuple[http.client.HTTPConnection, http.client.HTTPResponse]:
     """GET por ``http.client`` — só ``http``/``https`` (nada de ``file:`` ou esquemas
     customizados), seguindo até 5 redirecionamentos (o ZIP da release do GitHub
-    redireciona para o CDN). Devolve (conexão, resposta); quem chama fecha a conexão."""
+    redireciona para o CDN). Com ``hosts``, a URL inicial e cada redirecionamento só
+    podem ir a esses servidores (0.4.6). Devolve (conexão, resposta); quem chama fecha a conexão."""
     for _ in range(MAX_REDIRECIONAMENTOS + 1):
         u = urllib.parse.urlsplit(url)
+        if hosts is not None and not _host_permitido(u, hosts):
+            raise ValueError(t("upd.fora_github", onde=u.hostname or u.netloc or "?"))
         if u.scheme == "https":
             conn = http.client.HTTPSConnection(u.hostname, u.port, timeout=timeout, context=_ssl())
         elif u.scheme == "http" and not so_https:
@@ -122,7 +157,15 @@ def baixar_zip(url: str, timeout: int = 60) -> str:
     """Baixa o ZIP para um arquivo temporário e devolve o caminho."""
     if not url.startswith("https://"):
         raise ValueError(t("upd.so_https"))
-    conn, resp = _abrir(url, {"User-Agent": user_agent(), "Accept": "application/octet-stream"}, timeout, so_https=True)
+    if not url_de_release(url):
+        raise ValueError(t("upd.origem"))
+    conn, resp = _abrir(
+        url,
+        {"User-Agent": user_agent(), "Accept": "application/octet-stream"},
+        timeout,
+        so_https=True,
+        hosts=HOSTS_DOWNLOAD,
+    )
     fd, destino = tempfile.mkstemp(prefix="claudia_qgis-", suffix=".zip")
     try:
         with os.fdopen(fd, "wb") as f:

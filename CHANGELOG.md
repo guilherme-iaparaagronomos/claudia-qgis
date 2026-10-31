@@ -11,6 +11,19 @@ publicar, a seção ganha o número da versão e vai para o `changelog` do `meta
 
 Nothing yet.
 
+## 0.4.6
+
+- Video tutorial on how to connect, one per language (English, Portuguese, Spanish and French): in
+  the plugin description, in the menu (ClaudIA button and Plugins → ClaudIA QGIS → "Video tutorial:
+  how to connect", which opens the video in the interface language) and as a button in the welcome
+  window.
+- Safer "Update now" (security checkup #10, second half): the plugin only downloads a ZIP published
+  in the releases of the ClaudIA QGIS repository on GitHub (`…/claudia-qgis/releases/download/<tag>/
+  <file>.zip`) and follows redirects only to GitHub's download servers (github.com,
+  release-assets.githubusercontent.com, objects.githubusercontent.com), over https, without a user
+  or password in the address. The community server already applied the same rule to what it
+  announces (lib/qgis/release-segura.ts).
+
 ## 0.4.5
 
 - The free-requests line also shows in the Plugins menu (Plugins → ClaudIA QGIS), right below the

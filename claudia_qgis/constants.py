@@ -62,3 +62,18 @@ def versao_tupla(v):
 # Onde a comunidade publica a versão mais recente do plugin (mesmo bloco que o poll manda)
 ENDPOINT_PLUGIN = "/api/qgis/plugin"
 RELEASES_URL = f"{REPO_URL}/releases"
+
+# (0.4.6, checkup de segurança #10) "Atualizar agora" só baixa o ZIP de uma release do NOSSO
+# repositório — a mesma regra do servidor (lib/qgis/release-segura.ts na comunidade). Fixar só o
+# domínio github.com não bastaria: qualquer um publica release num repositório próprio do GitHub.
+PREFIXO_RELEASES = f"{REPO_URL}/releases/download/"
+# o GitHub responde o download com um redirecionamento para o CDN dele; nada além disso é seguido
+HOSTS_DOWNLOAD = ("github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com")
+
+# (0.4.6) tutorial em vídeo de como conectar, um por língua da interface (chaves = códigos do i18n)
+TUTORIAIS = {
+    "pt_BR": "https://www.youtube.com/watch?v=lmy_FfK0x0o",
+    "en": "https://www.youtube.com/watch?v=i3kPZWyq3Co",
+    "es": "https://www.youtube.com/watch?v=SlVHErJsIGY",
+    "fr": "https://www.youtube.com/watch?v=G2zVLVFMqKY",
+}

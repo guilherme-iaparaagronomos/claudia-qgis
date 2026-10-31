@@ -124,6 +124,11 @@ def _pagina_conector():
     return _base_url() + PAGINA_CONECTOR
 
 
+def _abrir_tutorial(*_args):
+    """(0.4.6) Abre no navegador o tutorial em vídeo da língua em vigor (YouTube)."""
+    QDesktopServices.openUrl(QUrl(i18n.tutorial_url()))
+
+
 class ConectarDialog(QDialog):
     """Token da comunidade + opções. Salva em QgsSettings e devolve accept()."""
 
@@ -224,6 +229,7 @@ class ClaudiaQgisPlugin:
         self.action = None
         self.conectar_action = None
         self.pagina_action = None
+        self.tutorial_action = None
         self.sobre_action = None
         self.tool_button = None
         self.status_label = None
@@ -301,6 +307,9 @@ class ClaudiaQgisPlugin:
         self.conectar_action.triggered.connect(self._abrir_dialogo)
         self.pagina_action = QAction(t("menu.pagina"), self.iface.mainWindow())
         self.pagina_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl(_pagina_conector())))
+        # (0.4.6) o vídeo de como conectar, na língua da interface
+        self.tutorial_action = QAction(t("menu.tutorial"), self.iface.mainWindow())
+        self.tutorial_action.triggered.connect(_abrir_tutorial)
         self.atualizar_action = QAction(t("menu.atualizar"), self.iface.mainWindow())
         self.atualizar_action.triggered.connect(self._verificar_atualizacao)
         self.sobre_action = QAction(t("menu.sobre"), self.iface.mainWindow())
@@ -315,6 +324,7 @@ class ClaudiaQgisPlugin:
         menu.addSeparator()
         menu.addAction(self.conectar_action)
         menu.addAction(self.pagina_action)
+        menu.addAction(self.tutorial_action)
         menu.addSeparator()
         menu.addAction(self.atualizar_action)
         menu.addAction(self.sobre_action)
@@ -338,6 +348,7 @@ class ClaudiaQgisPlugin:
         self.iface.addPluginToMenu(MENU, self.plano_action)
         self.iface.addPluginToMenu(MENU, self.conectar_action)
         self.iface.addPluginToMenu(MENU, self.pagina_action)
+        self.iface.addPluginToMenu(MENU, self.tutorial_action)
         self.iface.addPluginToMenu(MENU, self.atualizar_action)
         self.iface.addPluginToMenu(MENU, self.sobre_action)
         for sub in self.iface.pluginMenu().actions():
@@ -370,10 +381,17 @@ class ClaudiaQgisPlugin:
                 self.action.triggered.disconnect(self._alternar)
             self.iface.removePluginMenu(MENU, self.action)
             self.action = None
-        for a in (self.plano_action, self.conectar_action, self.pagina_action, self.atualizar_action, self.sobre_action):
+        for a in (
+            self.plano_action,
+            self.conectar_action,
+            self.pagina_action,
+            self.tutorial_action,
+            self.atualizar_action,
+            self.sobre_action,
+        ):
             if a:
                 self.iface.removePluginMenu(MENU, a)
-        self.conectar_action = self.pagina_action = self.atualizar_action = self.sobre_action = None
+        self.conectar_action = self.pagina_action = self.tutorial_action = self.atualizar_action = self.sobre_action = None
         self.plano_action = None
         if self._toolbar_action:
             self.iface.pluginToolBar().removeAction(self._toolbar_action)
@@ -400,6 +418,8 @@ class ClaudiaQgisPlugin:
         botoes = QHBoxLayout()
         abrir = QPushButton(t("boasvindas.abrir"))
         abrir.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(_pagina_conector())))
+        tutorial = QPushButton(t("boasvindas.tutorial"))
+        tutorial.clicked.connect(_abrir_tutorial)
         conectar = QPushButton(t("boasvindas.conectar"))
         conectar.setDefault(True)
         conectar.clicked.connect(dlg.accept)
@@ -407,6 +427,7 @@ class ClaudiaQgisPlugin:
         fechar = QPushButton(t("boasvindas.depois"))
         fechar.clicked.connect(dlg.reject)
         botoes.addWidget(abrir)
+        botoes.addWidget(tutorial)
         botoes.addStretch()
         botoes.addWidget(fechar)
         botoes.addWidget(conectar)
@@ -454,6 +475,7 @@ class ClaudiaQgisPlugin:
         for acao, chave in (
             (self.conectar_action, "menu.conectar"),
             (self.pagina_action, "menu.pagina"),
+            (self.tutorial_action, "menu.tutorial"),
             (self.atualizar_action, "menu.atualizar"),
             (self.sobre_action, "menu.sobre"),
         ):

@@ -132,6 +132,23 @@ for lang, esperado in ((i18n.ES, "Conectar con la comunidad…"), (i18n.FR, "Se 
     assert plugin.conectar_action.text() == esperado, plugin.conectar_action.text()
 i18n.idioma = lambda: i18n.PT
 plugin._aplicar_idioma()
+
+# (0.4.6) tutorial em vídeo: nos dois menus, e abre o vídeo da língua em vigor
+from claudia_qgis.constants import TUTORIAIS  # noqa: E402
+
+assert plugin.tutorial_action in plugin.tool_button.menu().actions()
+assert plugin.tutorial_action in [c.args[1] for c in iface.addPluginToMenu.call_args_list]
+assert plugin.tutorial_action.text() == "Tutorial em vídeo: como conectar", plugin.tutorial_action.text()
+for lang, video in ((i18n.PT, "lmy_FfK0x0o"), (i18n.EN, "i3kPZWyq3Co"), (i18n.ES, "SlVHErJsIGY"), (i18n.FR, "G2zVLVFMqKY")):
+    i18n.idioma = lambda lang=lang: lang
+    plugin._aplicar_idioma()
+    plugin.tutorial_action.trigger()
+    assert _abertos[-1] == f"https://www.youtube.com/watch?v={video}", (lang, _abertos[-1])
+assert plugin.tutorial_action.text().startswith("Tutoriel vidéo"), plugin.tutorial_action.text()
+assert i18n.tutorial_url("de") == TUTORIAIS[i18n.EN]
+i18n.idioma = lambda: i18n.PT
+plugin._aplicar_idioma()
+print("  ok  tutorial em vídeo: nos dois menus, o vídeo da língua em vigor (pt, en, es, fr), retraduz")
 print("  ok  idioma: es e fr retraduzem menu e botão")
 
 # (12/10) "Automático" = o idioma do QGIS (o da instalação/opções) ou, sem escolha, o do sistema;
@@ -177,7 +194,9 @@ except Exception as e:
     print("  ok  validar_zip recusa arquivo que não é o plugin")
 assert plugin.atualizar_action is not None
 _plano = plugin.plano_action
+_tutorial = plugin.tutorial_action
 plugin.unload()
+assert any(c.args[1] is _tutorial for c in iface.removePluginMenu.call_args_list), "o tutorial sai do menu Complementos no unload"
 assert plugin.status_label is None and plugin.action is None
 assert any(c.args[1] is _plano for c in iface.removePluginMenu.call_args_list), "a linha dos pedidos sai do menu Complementos no unload"
 print("\nTUDO OK")

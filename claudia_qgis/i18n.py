@@ -17,7 +17,7 @@ Modificado por OagronomIA (2026-09-28) — GPLv2+.
 
 from __future__ import annotations
 
-from .constants import SETTINGS_PREFIX
+from .constants import SETTINGS_PREFIX, TUTORIAIS
 
 AUTO = "auto"
 EN = "en"
@@ -48,6 +48,7 @@ _EN = {
     "menu.pagina": "My page in the community",
     "menu.atualizar": "Update the plugin…",
     "menu.sobre": "About ClaudIA QGIS",
+    "menu.tutorial": "Video tutorial: how to connect",
     # janela de conexão
     "conectar.titulo": "ClaudIA QGIS — Connect to the community",
     "conectar.intro": (
@@ -93,6 +94,7 @@ _EN = {
         "Source code: <a href='{repo}'>{repo}</a></small></p>"
     ),
     "boasvindas.abrir": "Open the community",
+    "boasvindas.tutorial": "Watch the video tutorial",
     "boasvindas.conectar": "Connect now",
     "boasvindas.depois": "Later",
     # sobre
@@ -139,6 +141,8 @@ _EN = {
     "upd.so_https": "updates are only downloaded over https",
     "upd.zip_grande": "ZIP larger than expected — aborted",
     "upd.zip_invalido": "the ZIP does not contain the claudia_qgis plugin",
+    "upd.origem": "the update is not a release of the ClaudIA QGIS repository — aborted",
+    "upd.fora_github": "the download was redirected outside GitHub ({onde}) — aborted",
     "upd.http": "HTTP {status} while fetching {onde}",
     "upd.redirecionamentos": "too many redirects",
     # cliente da comunidade (worker)
@@ -190,6 +194,7 @@ _PT = {
     "menu.pagina": "Minha página na comunidade",
     "menu.atualizar": "Atualizar o plugin…",
     "menu.sobre": "Sobre a ClaudIA QGIS",
+    "menu.tutorial": "Tutorial em vídeo: como conectar",
     "conectar.titulo": "ClaudIA QGIS — Conectar à comunidade",
     "conectar.intro": (
         "<p>Gere um <b>token do plugin</b> na sua página da comunidade agrônomo10X "
@@ -233,6 +238,7 @@ _PT = {
         "Código-fonte: <a href='{repo}'>{repo}</a></small></p>"
     ),
     "boasvindas.abrir": "Abrir a comunidade",
+    "boasvindas.tutorial": "Assistir ao tutorial em vídeo",
     "boasvindas.conectar": "Conectar agora",
     "boasvindas.depois": "Depois",
     "sobre.titulo": "Sobre a ClaudIA QGIS",
@@ -277,6 +283,8 @@ _PT = {
     "upd.so_https": "só baixo atualização por https",
     "upd.zip_grande": "ZIP maior que o esperado — abortei",
     "upd.zip_invalido": "o ZIP não contém o plugin claudia_qgis",
+    "upd.origem": "a atualização não é uma versão publicada no repositório da ClaudIA QGIS — abortei",
+    "upd.fora_github": "o download foi redirecionado para fora do GitHub ({onde}) — abortei",
     "upd.http": "HTTP {status} ao buscar {onde}",
     "upd.redirecionamentos": "redirecionamentos demais",
     "worker.conectando": "conectando à comunidade…",
@@ -327,6 +335,7 @@ _ES = {
     'menu.pagina': 'Mi página en la comunidad',
     'menu.atualizar': 'Actualizar el complemento…',
     'menu.sobre': 'Acerca de ClaudIA QGIS',
+    'menu.tutorial': 'Tutorial en video: cómo conectar',
     'conectar.titulo': 'ClaudIA QGIS — Conectar con la comunidad',
     'conectar.intro': '<p>Genera un <b>token del complemento</b> en tu página de la comunidad agrônomo10X y pégalo abajo. El token identifica TU QGIS: tu IA (Claude, ChatGPT…) conversa con la comunidad, y la comunidad habla con este QGIS.</p>',
     'conectar.abrir_pagina': 'Abrir mi página de la comunidad para generar el token',
@@ -348,6 +357,7 @@ _ES = {
     'boasvindas.titulo': 'ClaudIA QGIS instalada',
     'boasvindas.corpo': "<h2>ClaudIA QGIS</h2><p>Tu IA (Claude, ChatGPT…) ahora puede ver y operar este QGIS a través de la comunidad <b>agrônomo10X</b>.</p><p><b>Tres pasos:</b></p><ol><li>Abre tu página de <b>ClaudIA QGIS</b> en la comunidad (botón de abajo) y genera el <b>token de conexión</b>.</li><li>Aquí, haz clic en el botón de ClaudIA en la barra → <b>Conectar con la comunidad…</b> y pega el token.</li><li>En tu IA, agrega el conector <b>https://comunidade.agronomos.ia.br/api/mcp/qgis</b>, entra con tu cuenta de la comunidad y pide: <i>“lista las capas de mi proyecto”</i>.</li></ol><p><small>Software libre (GPLv2+), derivado de QGIS MCP de Nicolas Karasiak. Código fuente: <a href='{repo}'>{repo}</a></small></p>",
     'boasvindas.abrir': 'Abrir la comunidad',
+    'boasvindas.tutorial': 'Ver el tutorial en video',
     'boasvindas.conectar': 'Conectar ahora',
     'boasvindas.depois': 'Más tarde',
     'sobre.titulo': 'Acerca de ClaudIA QGIS',
@@ -373,6 +383,8 @@ _ES = {
     'upd.so_https': 'las actualizaciones solo se descargan por https',
     'upd.zip_grande': 'ZIP más grande de lo esperado — cancelado',
     'upd.zip_invalido': 'el ZIP no contiene el complemento claudia_qgis',
+    'upd.origem': 'la actualización no es una versión publicada en el repositorio de ClaudIA QGIS — cancelado',
+    'upd.fora_github': 'la descarga fue redirigida fuera de GitHub ({onde}) — cancelado',
     'upd.http': 'HTTP {status} al buscar {onde}',
     'upd.redirecionamentos': 'demasiadas redirecciones',
     'worker.conectando': 'conectando con la comunidad…',
@@ -422,6 +434,7 @@ _FR = {
     'menu.pagina': 'Ma page dans la communauté',
     'menu.atualizar': "Mettre à jour l'extension…",
     'menu.sobre': 'À propos de ClaudIA QGIS',
+    'menu.tutorial': 'Tutoriel vidéo\xa0: comment se connecter',
     'conectar.titulo': 'ClaudIA QGIS — Se connecter à la communauté',
     'conectar.intro': "<p>Générez un <b>jeton de l'extension</b> sur votre page de la communauté agrônomo10X et collez-le ci-dessous. Le jeton identifie VOTRE QGIS\xa0: votre IA (Claude, ChatGPT…) dialogue avec la communauté, et la communauté parle à ce QGIS.</p>",
     'conectar.abrir_pagina': 'Ouvrir ma page de la communauté pour générer le jeton',
@@ -443,6 +456,7 @@ _FR = {
     'boasvindas.titulo': 'ClaudIA QGIS installée',
     'boasvindas.corpo': "<h2>ClaudIA QGIS</h2><p>Votre IA (Claude, ChatGPT…) peut maintenant voir et piloter ce QGIS grâce à la communauté <b>agrônomo10X</b>.</p><p><b>Trois étapes\xa0:</b></p><ol><li>Ouvrez votre page <b>ClaudIA QGIS</b> dans la communauté (bouton ci-dessous) et générez le <b>jeton de connexion</b>.</li><li>Ici, cliquez sur le bouton ClaudIA dans la barre d'outils → <b>Se connecter à la communauté…</b> et collez le jeton.</li><li>Dans votre IA, ajoutez le connecteur <b>https://comunidade.agronomos.ia.br/api/mcp/qgis</b>, connectez-vous avec votre compte de la communauté et demandez\xa0: <i>«\xa0liste les couches de mon projet\xa0»</i>.</li></ol><p><small>Logiciel libre (GPLv2+), dérivé de QGIS MCP de Nicolas Karasiak. Code source\xa0: <a href='{repo}'>{repo}</a></small></p>",
     'boasvindas.abrir': 'Ouvrir la communauté',
+    'boasvindas.tutorial': 'Regarder le tutoriel vidéo',
     'boasvindas.conectar': 'Se connecter maintenant',
     'boasvindas.depois': 'Plus tard',
     'sobre.titulo': 'À propos de ClaudIA QGIS',
@@ -468,6 +482,8 @@ _FR = {
     'upd.so_https': "les mises à jour ne sont téléchargées qu'en https",
     'upd.zip_grande': 'ZIP plus grand que prévu — annulé',
     'upd.zip_invalido': "le ZIP ne contient pas l'extension claudia_qgis",
+    'upd.origem': "la mise à jour n'est pas une version publiée dans le dépôt de ClaudIA QGIS — annulé",
+    'upd.fora_github': 'le téléchargement a été redirigé hors de GitHub ({onde}) — annulé',
     'upd.http': 'HTTP {status} en récupérant {onde}',
     'upd.redirecionamentos': 'trop de redirections',
     'worker.conectando': 'connexion à la communauté…',
@@ -545,6 +561,11 @@ def idioma() -> str:
     """Idioma em vigor para os textos: a escolha do usuário ou, em auto, o do QGIS."""
     escolhido = idioma_configurado()
     return escolhido if escolhido in (EN, PT, ES, FR) else idioma_do_qgis()
+
+
+def tutorial_url(lang: str | None = None) -> str:
+    """(0.4.6) O tutorial em vídeo na língua em vigor (ou em ``lang``); sem vídeo nela, o em inglês."""
+    return TUTORIAIS.get(lang or idioma(), TUTORIAIS[EN])
 
 
 def t(chave: str, lang: str | None = None, **campos) -> str:
