@@ -111,6 +111,40 @@ ok(f"list_processing_algorithms(buffer) → {len(algs)}") if any("buffer" in (a.
 r = run("execute_processing", algorithm="native:buffer", parameters={"INPUT": layer_id, "DISTANCE": 0.01, "OUTPUT": "TEMPORARY_OUTPUT"}, load_results=True)
 ok("execute_processing native:buffer com load_results") if r.get("status") == "success" and (r.get("result") or {}).get("loaded_layers") else furo("execute_processing", r)
 
+# (0.4.7, do QGIS MCP 0.15.3) modelos de Processing: '=$area' é avaliado POR FEIÇÃO (antes a fórmula chegava vazia) e a
+# saída aceita o nome com que foi declarada (antes o nome era ignorado e o resultado ia para uma camada temporária)
+import tempfile  # noqa: E402
+
+from qgis.core import QgsVectorLayer  # noqa: E402
+
+_modelo = f"smoke_0153_{os.getpid()}"
+r = run(
+    "create_processing_model",
+    name=_modelo,
+    inputs=[{"name": "entrada", "type": "vector"}],
+    steps=[{"id": "s1", "algorithm": "native:fieldcalculator", "parameters": {"INPUT": "@entrada", "FIELD_NAME": "area_calc", "FIELD_TYPE": 0, "FIELD_LENGTH": 20, "FIELD_PRECISION": 8, "FORMULA": "=$area"}}],
+    outputs=[{"name": "SaidaArea", "from_step": "s1", "from_output": "OUTPUT"}],
+)
+_caminho_modelo = str((r.get("result") or {}).get("path") or "")
+if r.get("status") == "success" and _caminho_modelo.endswith(f"{_modelo}.model3") and os.path.isfile(_caminho_modelo):
+    ok("create_processing_model com FORMULA '=$area'")
+    try:
+        _saida = os.path.join(tempfile.mkdtemp(prefix="claudia_qgis_smoke_"), "saida.gpkg")
+        r = run("run_model", model=_caminho_modelo, parameters={"entrada": layer_id, "SaidaArea": _saida})
+        _camada = QgsVectorLayer(_saida, "saida", "ogr") if os.path.isfile(_saida) else None
+        _areas = [f["area_calc"] for f in _camada.getFeatures()] if _camada is not None and _camada.isValid() else []
+        if r.get("status") == "success" and len(_areas) == 2 and all(isinstance(a, (int, float)) and a > 0 for a in _areas):
+            ok("run_model: a fórmula vale por feição e a saída foi para o nome declarado")
+        else:
+            furo("run_model com '=$area' e a saída declarada", {"r": r, "areas": _areas, "arquivo": os.path.isfile(_saida)})
+        r = run("run_model", model=_caminho_modelo, parameters={"entrada": layer_id, "NaoExiste": 1})
+        ok("run_model recusa parâmetro que o modelo não tem") if r.get("status") == "error" and "NaoExiste" in r.get("message", "") else furo("run_model com chave desconhecida", r)
+        del _camada
+    finally:
+        os.remove(_caminho_modelo)
+else:
+    furo("create_processing_model", r)
+
 # ------------------------------------------- 0.15.0: checkpoints, sessão e job
 r = run("create_checkpoint", name="smoke")
 cp_id = (r.get("result") or {}).get("id") or (r.get("result") or {}).get("checkpoint_id")

@@ -31,7 +31,17 @@ founder says so (a release shows "Update now" to everyone).
 - Nothing changes with a community server that does not send the new states (free trial by
   requests, trial by days and "unlimited requests" keep working), and a state this version does
   not know is ignored.
-- Texts in English, Portuguese, Spanish and French. No change to the tools.
+- Command handlers updated to nkarasiak/qgis-mcp v0.15.3 (released 2026-11-11), two fixes to Processing
+  models:
+  - A step parameter written as `"FORMULA": "=$area"` built a model that failed at run time with
+    `Parser error with formula expression ""`. On expression parameters (FORMULA, EXPRESSION) the
+    `=expression` now goes through as text and QGIS evaluates it per feature; elsewhere it is still
+    evaluated once per run.
+  - `run_model` silently dropped the declared output names, so the result went to a temporary layer.
+    It now maps each key to the model parameter it names (`FancyOut` → `fancyout` or `s1:FancyOut`)
+    and refuses a key the model does not have, listing the valid ones.
+  The headless smoke test builds a model with `=$area`, runs it into a declared output and removes it.
+- Texts in English, Portuguese, Spanish and French. No tool added or removed.
 
 ### Planned for the next version (not built yet) / Previsto para a próxima versão (ainda não feito)
 

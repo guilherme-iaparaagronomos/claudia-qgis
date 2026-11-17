@@ -87,8 +87,10 @@ changelog=0.4.7 : plans by usage — the plugin now shows the two account states
     requests run out (they come back at midnight, Brasília time). On a
     subscription: the monthly usage as a percentage, with the renewal date in
     the menu, one notice when it passes 80% and one, with the "See the plans"
-    button, when it runs out. Older servers keep working as before. No change
-    to the tools.
+    button, when it runs out. Older servers keep working as before. Command
+    handlers updated to nkarasiak/qgis-mcp v0.15.3: in Processing models,
+    '=$area' style formulas are evaluated per feature and run_model accepts
+    the declared output names. No tool added or removed.
     0.4.6 : video tutorial on how to connect, in English, Portuguese,
     Spanish and French — in this description, in the menu (ClaudIA button and
     Plugins → ClaudIA QGIS → "Video tutorial: how to connect", which opens the
