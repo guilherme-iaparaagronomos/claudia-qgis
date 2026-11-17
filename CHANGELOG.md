@@ -11,10 +11,30 @@ publicar, a seção ganha o número da versão e vai para o `changelog` do `meta
 
 Nothing yet.
 
+### Planned for the next version (not built yet) / Previsto para a próxima versão (ainda não feito)
+
+- "Your AI is not connected yet" notice. Pasting the token only connects QGIS to the community: the
+  AI (Claude, ChatGPT or another MCP-compatible AI) still has to be connected to the ClaudIA QGIS
+  connector, and many people stop before that step. When the community tells the plugin that the
+  account has no AI connected yet, the plugin should say so right after it connects: a message in
+  the message bar and a line in the menu, with the connector address ready to copy and a button that
+  opens the video tutorial at the minute that shows this step (1:04, the same in the four videos).
+  The notice goes away by itself once the AI is connected. It depends on the community answering
+  that in the polling reply (a new field), so the two changes ship together. Texts in English,
+  Portuguese, Spanish and French. Asked by the founder on 2026-11-11, together with the reminder
+  e-mail the community sends one hour and one day after the token is generated.
+- Aviso "a sua IA ainda não está conectada". Colar o token só liga o QGIS à comunidade: falta
+  conectar a IA ao conector da ClaudIA QGIS, e muita gente para antes desse passo. Quando a
+  comunidade avisar que a conta ainda não tem IA conectada, o plugin mostra isso logo depois de
+  conectar (barra de mensagens e uma linha no menu), com o endereço do conector pronto para copiar
+  e um botão que abre o tutorial em vídeo no minuto desse passo (1:04, igual nos quatro vídeos). O
+  aviso some sozinho quando a IA conecta. Depende de a comunidade informar isso na resposta da
+  consulta periódica (campo novo): as duas mudanças saem juntas. Pedido do fundador em 11/11/2026,
+  junto com o e-mail de lembrete que a comunidade manda 1 hora e 1 dia depois do token.
+
 ## 0.4.7
 
-Prepared on 2026-11-17 for the community plans by usage. Not published yet: it ships when the
-founder says so (a release shows "Update now" to everyone).
+Released on 2026-11-17, ahead of the community plans by usage.
 
 - Plans by usage. The community now tells the plugin two new account states, and the plugin shows
   them in the toolbar button, the status bar and the menu (ClaudIA button and Plugins → ClaudIA
@@ -42,27 +62,6 @@ founder says so (a release shows "Update now" to everyone).
     and refuses a key the model does not have, listing the valid ones.
   The headless smoke test builds a model with `=$area`, runs it into a declared output and removes it.
 - Texts in English, Portuguese, Spanish and French. No tool added or removed.
-
-### Planned for the next version (not built yet) / Previsto para a próxima versão (ainda não feito)
-
-- "Your AI is not connected yet" notice. Pasting the token only connects QGIS to the community: the
-  AI (Claude, ChatGPT or another MCP-compatible AI) still has to be connected to the ClaudIA QGIS
-  connector, and many people stop before that step. When the community tells the plugin that the
-  account has no AI connected yet, the plugin should say so right after it connects: a message in
-  the message bar and a line in the menu, with the connector address ready to copy and a button that
-  opens the video tutorial at the minute that shows this step (1:04, the same in the four videos).
-  The notice goes away by itself once the AI is connected. It depends on the community answering
-  that in the polling reply (a new field), so the two changes ship together. Texts in English,
-  Portuguese, Spanish and French. Asked by the founder on 2026-11-11, together with the reminder
-  e-mail the community sends one hour and one day after the token is generated.
-- Aviso "a sua IA ainda não está conectada". Colar o token só liga o QGIS à comunidade: falta
-  conectar a IA ao conector da ClaudIA QGIS, e muita gente para antes desse passo. Quando a
-  comunidade avisar que a conta ainda não tem IA conectada, o plugin mostra isso logo depois de
-  conectar (barra de mensagens e uma linha no menu), com o endereço do conector pronto para copiar
-  e um botão que abre o tutorial em vídeo no minuto desse passo (1:04, igual nos quatro vídeos). O
-  aviso some sozinho quando a IA conecta. Depende de a comunidade informar isso na resposta da
-  consulta periódica (campo novo): as duas mudanças saem juntas. Pedido do fundador em 11/11/2026,
-  junto com o e-mail de lembrete que a comunidade manda 1 hora e 1 dia depois do token.
 
 ## 0.4.6
 
