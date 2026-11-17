@@ -67,7 +67,7 @@ about=🇺🇸 ENGLISH
     LICENSE · LICENÇA · LICENCIA · LICENCE
     Free software (GPLv2+), derived from "QGIS MCP" by Nicolas Karasiak (https://github.com/nkarasiak/qgis-mcp) — software livre · software libre · logiciel libre.
 
-version=0.4.6
+version=0.4.7
 author=OagronomIA — comunidade agrônomo10X
 email=guilherme@iaparaagronomos.com.br
 tags=ai,claude,chatgpt,mcp,llm,agro,agriculture,automation,assistant
@@ -80,7 +80,16 @@ icon=icons/icon.png
 experimental=True
 deprecated=False
 hasProcessingProvider=no
-changelog=0.4.6 : video tutorial on how to connect, in English, Portuguese,
+changelog=0.4.7 : plans by usage — the plugin now shows the two account states
+    of the new community plans. On the free plan: the requests used today
+    (for example "3 of 7 requests today") in the toolbar button, the status bar
+    and the menu, and one notice with a "See the plans" button when the day's
+    requests run out (they come back at midnight, Brasília time). On a
+    subscription: the monthly usage as a percentage, with the renewal date in
+    the menu, one notice when it passes 80% and one, with the "See the plans"
+    button, when it runs out. Older servers keep working as before. No change
+    to the tools.
+    0.4.6 : video tutorial on how to connect, in English, Portuguese,
     Spanish and French — in this description, in the menu (ClaudIA button and
     Plugins → ClaudIA QGIS → "Video tutorial: how to connect", which opens the
     video in the interface language) and as a button in the welcome window.

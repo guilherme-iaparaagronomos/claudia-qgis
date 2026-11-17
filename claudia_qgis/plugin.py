@@ -249,6 +249,7 @@ class ClaudiaQgisPlugin:
         self._plano = None
         self.plano_action = None
         self._avisou_pedidos = None
+        self._avisou_uso = None
 
     # --------------------------------------------------------------- ícones
     def _icone_base(self):
@@ -569,6 +570,7 @@ class ClaudiaQgisPlugin:
         self._avisou_acesso = False
         self._plano = None
         self._avisou_pedidos = None
+        self._avisou_uso = None
         self._atualizar_plano_ui()
 
     def _atualizar_info(self, *_args):
@@ -680,10 +682,16 @@ class ClaudiaQgisPlugin:
             return t("plano.ilimitado")
         if p.get("tipo") == "dias" and p.get("ate"):
             return t("plano.dias", data=self._data_curta(p["ate"]))
+        # (0.4.7) planos por uso: pedidos de hoje no plano gratuito, uso do mês na assinatura
+        if p.get("tipo") == "dia" and isinstance(p.get("usados"), int) and isinstance(p.get("total"), int):
+            return t("plano.dia", u=p["usados"], t=p["total"])
+        if p.get("tipo") == "mes" and isinstance(p.get("pct"), int):
+            return t("plano.mes", pct=p["pct"])
         return ""
 
     def _atualizar_plano_ui(self):
-        """A linha do topo do menu: pedidos restantes e prazo, 'pedidos ilimitados' ou o prazo do teste antigo."""
+        """A linha do topo do menu: pedidos restantes e prazo, 'pedidos ilimitados', o prazo do teste antigo, os
+        pedidos de hoje (plano gratuito) ou o uso do mês (assinatura)."""
         if not self.plano_action:
             return
         p = self._plano
@@ -694,6 +702,13 @@ class ClaudiaQgisPlugin:
             texto = t("plano.menu_ilimitado")
         elif p and p.get("tipo") == "dias" and p.get("ate"):
             texto = t("plano.menu_dias", data=self._data_curta(p["ate"]))
+        elif p and p.get("tipo") == "dia" and isinstance(p.get("usados"), int) and isinstance(p.get("total"), int):
+            texto = t("plano.menu_dia", u=p["usados"], t=p["total"])
+        elif p and p.get("tipo") == "mes" and isinstance(p.get("pct"), int):
+            if p.get("renova"):
+                texto = t("plano.menu_mes", pct=p["pct"], data=self._data_curta(p["renova"]))
+            else:
+                texto = t("plano.mes_curto", pct=p["pct"])
         self.plano_action.setText(texto)
         self.plano_action.setVisible(bool(texto))
 
@@ -705,6 +720,9 @@ class ClaudiaQgisPlugin:
             self._mostrar_estado("conectado", self._texto_plano())
         p = self._plano or {}
         restantes, total = p.get("restantes"), p.get("total")
+        if p.get("tipo") in ("dia", "mes"):
+            self._avisar_uso(p)
+            return
         if p.get("tipo") != "pedidos" or not isinstance(restantes, int) or restantes > 2 or restantes == self._avisou_pedidos:
             return
         self._avisou_pedidos = restantes
@@ -714,17 +732,46 @@ class ClaudiaQgisPlugin:
             with contextlib.suppress(Exception):
                 self.iface.messageBar().pushInfo(LOG_TAG, t("msg.poucos_pedidos", r=restantes))
 
+    def _avisar_uso(self, p):
+        """(0.4.7) Planos por uso: avisa UMA vez quando os pedidos do dia acabam (plano gratuito) e quando o uso do
+        mês passa de 80 % ou acaba (assinatura). Sem aviso a cada pedido: o número está no botão e no menu."""
+        marca, texto, com_planos = None, "", False
+        if p.get("tipo") == "dia":
+            if p.get("restantes") == 0 and isinstance(p.get("total"), int):
+                marca, texto, com_planos = "dia:0", t("msg.dia_acabou", t=p["total"]), True
+        elif p.get("nivel") in ("aviso", "esgotada") and isinstance(p.get("pct"), int):
+            data = self._data_curta(p["renova"]) if p.get("renova") else "—"
+            if p["nivel"] == "esgotada":
+                marca, texto, com_planos = "mes:esgotada", t("msg.mes_acabou", data=data), True
+            else:
+                marca, texto = "mes:aviso", t("msg.mes_aviso", pct=p["pct"], data=data)
+        if marca is None:
+            self._avisou_uso = None  # dia novo, mês novo ou plano maior: o próximo limite avisa de novo
+            return
+        if marca == self._avisou_uso:
+            return
+        self._avisou_uso = marca
+        if com_planos:
+            self._avisar_com_planos(texto)
+        else:
+            with contextlib.suppress(Exception):
+                self.iface.messageBar().pushInfo(LOG_TAG, texto)
+
     def _avisar_pedidos_acabaram(self, total):
         """Barra 'Você usou os N pedidos grátis…' com o botão que abre os planos."""
+        self._avisar_com_planos(t("msg.pedidos_acabaram", t=total))
+
+    def _avisar_com_planos(self, texto):
+        """Barra de aviso com o botão que abre os planos (sem barra, no modo sem janela, o texto fica no log)."""
         try:
             barra = self.iface.messageBar()
-            w = barra.createMessage(LOG_TAG, t("msg.pedidos_acabaram", t=total))
+            w = barra.createMessage(LOG_TAG, texto)
             botao = QPushButton(t("msg.botao_planos"))
             botao.clicked.connect(self._abrir_planos)
             w.layout().addWidget(botao)
             barra.pushWidget(w, MSG_WARNING)
         except Exception as e:  # sem barra (headless) — fica no log
-            QgsMessageLog.logMessage(f"{t('msg.pedidos_acabaram', t=total)} ({e})", LOG_TAG, MSG_WARNING)
+            QgsMessageLog.logMessage(f"{texto} ({e})", LOG_TAG, MSG_WARNING)
 
     def _estado_mudou(self, estado, detalhe):
         self._estado, self._detalhe = estado, detalhe

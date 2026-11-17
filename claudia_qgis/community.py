@@ -24,6 +24,7 @@ from __future__ import annotations
 import contextlib
 import http.client
 import json
+import math
 import queue
 import socket
 import ssl
@@ -44,6 +45,10 @@ BACKOFF_MAX_S = 30
 # (P18) sem acesso, o token segue válido: confere de novo a cada minuto e reconecta
 # sozinho quando a pessoa assina (sem martelar a comunidade a cada 30 s)
 ESPERA_SEM_ACESSO_S = 60
+
+# (0.4.7) as situações da conta que esta versão sabe mostrar (campo `plano` do poll) e as faixas do uso do mês
+TIPOS_DE_PLANO = ("pedidos", "dias", "ilimitado", "dia", "mes")
+NIVEIS_DO_USO = ("ok", "aviso", "esgotada")
 
 
 class TokenInvalido(Exception):
@@ -84,6 +89,8 @@ class ComunidadeWorker(QObject):
     versao_disponivel = pyqtSignal(dict)
     # (0.4.4) a situação da conta mudou: {"tipo": "pedidos", "total", "usados", "restantes", "ate"} no teste grátis
     # por pedidos, {"tipo": "dias", "ate"} no teste antigo, {"tipo": "ilimitado"} com a QGIS no plano
+    # (0.4.7) planos por uso: {"tipo": "dia", "total", "usados", "restantes"} no plano gratuito (pedidos por dia) e
+    # {"tipo": "mes", "pct", "nivel", "renova"} na assinatura (o uso do mês, em percentual)
     plano_mudou = pyqtSignal(dict)
 
     def __init__(self, base_url: str, token: str, info: dict, idioma: str | None = None):
@@ -283,9 +290,9 @@ class ComunidadeWorker(QObject):
     def _checar_plano(self, plano):
         """(0.4.4) Emite `plano_mudou` quando a situação da conta muda (pedidos usados, assinatura, fim do teste).
 
-        Servidor antigo não manda o campo: nada muda na interface.
+        Servidor antigo não manda o campo: nada muda na interface. Tipo que esta versão não conhece: idem.
         """
-        if not isinstance(plano, dict) or plano.get("tipo") not in ("pedidos", "dias", "ilimitado"):
+        if not isinstance(plano, dict) or plano.get("tipo") not in TIPOS_DE_PLANO:
             return
         limpo = {"tipo": plano["tipo"]}
         for campo in ("total", "usados", "restantes"):
@@ -293,6 +300,15 @@ class ComunidadeWorker(QObject):
                 limpo[campo] = plano[campo]
         if isinstance(plano.get("ate"), str):
             limpo["ate"] = plano["ate"][:40]
+        if plano["tipo"] == "mes":
+            # (0.4.7) o uso do mês: percentual inteiro de 0 a 100, a faixa e a data em que renova
+            pct = plano.get("pct")
+            if isinstance(pct, (int, float)) and not isinstance(pct, bool) and math.isfinite(pct):
+                limpo["pct"] = max(0, min(100, int(pct)))
+            if plano.get("nivel") in NIVEIS_DO_USO:
+                limpo["nivel"] = plano["nivel"]
+            if isinstance(plano.get("renova"), str):
+                limpo["renova"] = plano["renova"][:40]
         if limpo == self._plano_visto:
             return
         self._plano_visto = limpo

@@ -11,6 +11,28 @@ publicar, a seção ganha o número da versão e vai para o `changelog` do `meta
 
 Nothing yet.
 
+## 0.4.7
+
+Prepared on 2026-11-17 for the community plans by usage. Not published yet: it ships when the
+founder says so (a release shows "Update now" to everyone).
+
+- Plans by usage. The community now tells the plugin two new account states, and the plugin shows
+  them in the toolbar button, the status bar and the menu (ClaudIA button and Plugins → ClaudIA
+  QGIS):
+  - Free plan: the requests used today, for example "3 of 7 requests today". The menu line adds
+    that they come back at midnight (Brasília time). When the day's requests run out, the message
+    bar says so once, with the "See the plans" button. No notice before that: the number is always
+    in sight.
+  - Subscription: the monthly usage as a percentage, for example "monthly usage: 34%", with the
+    renewal date in the menu. The message bar warns once when it passes 80% and once, with the
+    "See the plans" button, when it runs out.
+- The plugin never shows points or internal units: only requests per day and the percentage of
+  the month, the same the member sees on the community site.
+- Nothing changes with a community server that does not send the new states (free trial by
+  requests, trial by days and "unlimited requests" keep working), and a state this version does
+  not know is ignored.
+- Texts in English, Portuguese, Spanish and French. No change to the tools.
+
 ### Planned for the next version (not built yet) / Previsto para a próxima versão (ainda não feito)
 
 - "Your AI is not connected yet" notice. Pasting the token only connects QGIS to the community: the

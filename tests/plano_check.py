@@ -4,6 +4,8 @@ Sobe um servidor HTTP local que imita o /api/qgis/poll e confere o que o worker 
 * o mesmo plano repetido em vários polls → UM sinal só;
 * pedido contado (restantes muda)       → sinal de novo, com os números;
 * conta assinou (tipo "ilimitado")      → sinal com tipo ilimitado;
+* (0.4.7) plano gratuito por dia (tipo "dia") e assinatura por uso do mês (tipo "mes") → sinal com os campos
+  limpos (percentual inteiro de 0 a 100, faixa conhecida, data cortada);
 * lixo do servidor (tipo desconhecido, número que é bool, data enorme) → nada de sinal / campo limpo.
 
     "C:/Program Files/QGIS 3.40.14/bin/python-qgis-ltr.bat" tests/plano_check.py
@@ -89,8 +91,28 @@ passo({"tipo": "ilimitado"})
 assert planos[-1] == {"tipo": "ilimitado"}, planos
 print("  ok  assinou → tipo ilimitado")
 
+# (0.4.7) planos por uso
+passo({"tipo": "dia", "total": 7, "usados": 3, "restantes": 4})
+assert planos[-1] == {"tipo": "dia", "total": 7, "usados": 3, "restantes": 4}, planos[-1]
+n = len(planos)
+passo({"tipo": "dia", "total": 7, "usados": 3, "restantes": 4})
+assert len(planos) == n, ("o mesmo dia repetido não emite de novo", planos)
+passo({"tipo": "dia", "total": 7, "usados": 7, "restantes": 0})
+assert len(planos) == n + 1 and planos[-1]["restantes"] == 0, planos
+print("  ok  plano gratuito → pedidos de hoje, um sinal por mudança")
+
+passo({"tipo": "mes", "pct": 34, "nivel": "ok", "renova": "2026-12-01T03:00:00.000Z"})
+assert planos[-1] == {"tipo": "mes", "pct": 34, "nivel": "ok", "renova": "2026-12-01T03:00:00.000Z"}, planos[-1]
+passo({"tipo": "mes", "pct": 81.9, "nivel": "aviso", "renova": "2026-12-01T03:00:00.000Z"})
+assert planos[-1]["pct"] == 81 and planos[-1]["nivel"] == "aviso", planos[-1]
+passo({"tipo": "mes", "pct": 250, "nivel": "esgotada", "renova": "x" * 500})
+assert planos[-1] == {"tipo": "mes", "pct": 100, "nivel": "esgotada", "renova": "x" * 40}, planos[-1]
+passo({"tipo": "mes", "pct": True, "nivel": "roxo", "renova": 7})
+assert planos[-1] == {"tipo": "mes"}, ("bool não é percentual; faixa desconhecida e data que não é texto ficam de fora", planos[-1])
+print("  ok  assinatura → uso do mês: percentual inteiro de 0 a 100, faixa conhecida, data cortada")
+
 w.parar()
 t.join(5)
 assert not t.is_alive(), "o worker não parou"
 srv.shutdown()
-print("ok  cliente da comunidade: plano do teste por pedidos")
+print("ok  cliente da comunidade: plano do teste por pedidos e dos planos por uso")

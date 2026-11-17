@@ -164,6 +164,23 @@ _EN = {
     "plano.menu_pedidos": "Free trial: {r} of {t} requests left · until {data}",
     "plano.menu_ilimitado": "Unlimited requests — ClaudIA QGIS is in your plan",
     "plano.menu_dias": "Free trial until {data}",
+    # (0.4.7) planos por uso: pedidos por dia no plano gratuito, uso do mês (em %) na assinatura
+    "plano.dia": "{u} of {t} requests today",
+    "plano.mes": "monthly usage: {pct}%",
+    "plano.mes_curto": "Monthly usage: {pct}%",
+    "plano.menu_dia": "Free plan: {u} of {t} requests today · they come back at midnight (Brasília time)",
+    "plano.menu_mes": "Monthly usage: {pct}% · renews on {data}",
+    "msg.dia_acabou": (
+        "You used today's {t} ClaudIA QGIS requests on the free plan. They come back at midnight "
+        "(Brasília time). With a subscription there is no daily limit."
+    ),
+    "msg.mes_aviso": (
+        "ClaudIA QGIS — you have used {pct}% of your plan's monthly usage. It renews on {data}."
+    ),
+    "msg.mes_acabou": (
+        "Your plan's monthly usage has run out. ClaudIA QGIS works again on {data}, or sooner if "
+        "you move to a larger plan."
+    ),
     "msg.poucos_pedidos": (
         "ClaudIA QGIS — free requests left in your trial: {r}. Each request is whatever you ask "
         "your AI, however many tools it uses."
@@ -304,6 +321,22 @@ _PT = {
     "plano.menu_pedidos": "Teste grátis: {r} de {t} pedidos restantes · até {data}",
     "plano.menu_ilimitado": "Pedidos ilimitados — a ClaudIA QGIS está no seu plano",
     "plano.menu_dias": "Teste grátis até {data}",
+    "plano.dia": "{u} de {t} pedidos hoje",
+    "plano.mes": "uso do mês: {pct}%",
+    "plano.mes_curto": "Uso do mês: {pct}%",
+    "plano.menu_dia": "Plano gratuito: {u} de {t} pedidos hoje · voltam à meia-noite (horário de Brasília)",
+    "plano.menu_mes": "Uso do mês: {pct}% · renova em {data}",
+    "msg.dia_acabou": (
+        "Você usou os {t} pedidos de hoje da ClaudIA QGIS no plano gratuito. Eles voltam à "
+        "meia-noite (horário de Brasília). Com uma assinatura não há limite por dia."
+    ),
+    "msg.mes_aviso": (
+        "ClaudIA QGIS — você já usou {pct}% do uso do mês do seu plano. Ele renova em {data}."
+    ),
+    "msg.mes_acabou": (
+        "O uso do mês do seu plano acabou. A ClaudIA QGIS volta a atender em {data}, ou antes, se "
+        "você passar para um plano maior."
+    ),
     "msg.poucos_pedidos": (
         "ClaudIA QGIS — pedidos grátis restantes no seu teste: {r}. Cada pedido é o que você pede "
         "à sua IA, use quantas ferramentas ela precisar."
@@ -404,6 +437,20 @@ _ES = {
     'plano.menu_pedidos': 'Prueba gratis: {r} de {t} pedidos restantes · hasta el {data}',
     'plano.menu_ilimitado': 'Pedidos ilimitados — ClaudIA QGIS está en tu plan',
     'plano.menu_dias': 'Prueba gratis hasta el {data}',
+    'plano.dia': '{u} de {t} pedidos hoy',
+    'plano.mes': 'uso del mes: {pct}%',
+    'plano.mes_curto': 'Uso del mes: {pct}%',
+    'plano.menu_dia': 'Plan gratuito: {u} de {t} pedidos hoy · vuelven a medianoche (hora de Brasilia)',
+    'plano.menu_mes': 'Uso del mes: {pct}% · se renueva el {data}',
+    'msg.dia_acabou': (
+        'Usaste los {t} pedidos de hoy de ClaudIA QGIS en el plan gratuito. Vuelven a medianoche '
+        '(hora de Brasilia). Con una suscripción no hay límite por día.'
+    ),
+    'msg.mes_aviso': 'ClaudIA QGIS — ya usaste el {pct}% del uso del mes de tu plan. Se renueva el {data}.',
+    'msg.mes_acabou': (
+        'El uso del mes de tu plan se acabó. ClaudIA QGIS vuelve a atender el {data}, o antes, si '
+        'pasas a un plan mayor.'
+    ),
     'msg.poucos_pedidos': (
         'ClaudIA QGIS — pedidos gratis restantes en tu prueba: {r}. Cada pedido es lo que le pides '
         'a tu IA, con todas las herramientas que necesite.'
@@ -503,6 +550,23 @@ _FR = {
     'plano.menu_pedidos': "Essai gratuit\xa0: {r} sur {t}\xa0demandes restantes · jusqu'au {data}",
     'plano.menu_ilimitado': 'Demandes illimitées — ClaudIA QGIS fait partie de votre offre',
     'plano.menu_dias': "Essai gratuit jusqu'au {data}",
+    'plano.dia': "demandes aujourd'hui\xa0: {u} sur {t}",
+    'plano.mes': 'utilisation du mois\xa0: {pct}\xa0%',
+    'plano.mes_curto': 'Utilisation du mois\xa0: {pct}\xa0%',
+    'plano.menu_dia': "Offre gratuite\xa0: {u} sur {t}\xa0demandes aujourd'hui · elles reviennent à minuit (heure de Brasília)",
+    'plano.menu_mes': 'Utilisation du mois\xa0: {pct}\xa0% · renouvellement le {data}',
+    'msg.dia_acabou': (
+        "Vous avez utilisé vos {t}\xa0demandes du jour de ClaudIA QGIS (offre gratuite). Elles reviennent à "
+        "minuit (heure de Brasília). Avec un abonnement, il n'y a pas de limite par jour."
+    ),
+    'msg.mes_aviso': (
+        "ClaudIA QGIS — vous avez utilisé {pct}\xa0% de l'utilisation mensuelle de votre offre. Elle se "
+        "renouvelle le {data}."
+    ),
+    'msg.mes_acabou': (
+        "L'utilisation mensuelle de votre offre est épuisée. ClaudIA QGIS reprend le {data}, ou plus tôt "
+        "si vous passez à une offre supérieure."
+    ),
     'msg.poucos_pedidos': (
         "ClaudIA QGIS — demandes gratuites restantes dans votre essai\xa0: {r}. Une demande, "
         "c'est ce que vous demandez à votre IA, quel que soit le nombre d'outils utilisés."

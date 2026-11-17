@@ -110,6 +110,53 @@ plugin._aplicar_idioma()
 plugin._desconectar()
 assert not plugin.plano_action.isVisible(), "desconectou: a linha do plano some"
 print("  ok  pedidos: menu, barra de status, aviso nos 2 últimos, botão no zero, ilimitado, dias, en, desconectar")
+
+# (0.4.7) planos por uso: pedidos de hoje no plano gratuito e uso do mês na assinatura
+plugin._estado_mudou("conectado", "x")
+iface.messageBar.reset_mock()
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 3, "restantes": 4})
+assert plugin.plano_action.text() == "Plano gratuito: 3 de 7 pedidos hoje · voltam à meia-noite (horário de Brasília)", plugin.plano_action.text()
+assert "3 de 7 pedidos hoje" in plugin.status_label.text(), plugin.status_label.text()
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 6, "restantes": 1})
+assert iface.messageBar.return_value.pushInfo.call_count == 0 and iface.messageBar.return_value.pushWidget.call_count == 0, "no gratuito, nada de aviso antes de acabar"
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 7, "restantes": 0})
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 7, "restantes": 0})
+assert iface.messageBar.return_value.pushWidget.call_count == 1, "os pedidos do dia acabaram: UMA barra com o botão dos planos"
+assert "7 pedidos de hoje" in iface.messageBar.return_value.createMessage.call_args.args[1], iface.messageBar.return_value.createMessage.call_args
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 0, "restantes": 7})
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 7, "restantes": 0})
+assert iface.messageBar.return_value.pushWidget.call_count == 2, "dia novo: o aviso vale de novo"
+print("  ok  plano gratuito: pedidos de hoje no menu e na barra, um aviso quando acabam, de novo no dia seguinte")
+
+iface.messageBar.reset_mock()
+_renova = "2026-12-01T03:00:00.000Z"  # meia-noite de 1º/12 em Brasília
+plugin._plano_mudou({"tipo": "mes", "pct": 34, "nivel": "ok", "renova": _renova})
+assert plugin.plano_action.text() == "Uso do mês: 34% · renova em 01/12", plugin.plano_action.text()
+assert "uso do mês: 34%" in plugin.status_label.text(), plugin.status_label.text()
+assert iface.messageBar.return_value.pushInfo.call_count == 0, "abaixo de 80 %, nada de aviso"
+plugin._plano_mudou({"tipo": "mes", "pct": 81, "nivel": "aviso", "renova": _renova})
+plugin._plano_mudou({"tipo": "mes", "pct": 83, "nivel": "aviso", "renova": _renova})
+assert iface.messageBar.return_value.pushInfo.call_count == 1, "passou de 80 %: um aviso só"
+assert "81%" in iface.messageBar.return_value.pushInfo.call_args.args[1] and "01/12" in iface.messageBar.return_value.pushInfo.call_args.args[1]
+plugin._plano_mudou({"tipo": "mes", "pct": 100, "nivel": "esgotada", "renova": _renova})
+plugin._plano_mudou({"tipo": "mes", "pct": 100, "nivel": "esgotada", "renova": _renova})
+assert iface.messageBar.return_value.pushWidget.call_count == 1, "o uso do mês acabou: UMA barra com o botão dos planos"
+assert plugin.plano_action.text() == "Uso do mês: 100% · renova em 01/12", plugin.plano_action.text()
+plugin._plano_mudou({"tipo": "mes", "pct": 12})
+assert plugin.plano_action.text() == "Uso do mês: 12%", "sem a data, a linha curta"
+for _texto in (plugin.plano_action.text(), plugin.status_label.text()):
+    assert "ponto" not in _texto.lower() and "token" not in _texto.lower(), _texto
+i18n.idioma = lambda: i18n.EN
+plugin._aplicar_idioma()
+plugin._plano_mudou({"tipo": "mes", "pct": 34, "nivel": "ok", "renova": _renova})
+assert plugin.plano_action.text() == "Monthly usage: 34% · renews on 12/01", plugin.plano_action.text()
+plugin._plano_mudou({"tipo": "dia", "total": 7, "usados": 2, "restantes": 5})
+assert "2 of 7 requests today" in plugin.status_label.text(), plugin.status_label.text()
+i18n.idioma = lambda: i18n.PT
+plugin._aplicar_idioma()
+plugin._desconectar()
+assert not plugin.plano_action.isVisible() and plugin._avisou_uso is None, "desconectou: a linha some e os avisos zeram"
+print("  ok  assinatura: uso do mês no menu e na barra, aviso aos 80 %, botão dos planos aos 100 %, en, desconectar")
 plugin._estado_mudou("sem_rede", "HTTP 429")
 
 # (0.4.2) troca de idioma em tempo de execução: menu e estado retraduzidos
