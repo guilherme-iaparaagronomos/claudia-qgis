@@ -20,7 +20,18 @@ def versao():
     return cfg.get("general", "version")
 
 
+def conferir_metadata():
+    """O portal do QGIS lê o metadata inteiro e recusa o envio se ele não passar (tests/metadata_check.py)."""
+    import sys
+
+    sys.path.insert(0, os.path.join(RAIZ, "tests"))
+    import metadata_check
+
+    metadata_check.conferir()
+
+
 def main():
+    conferir_metadata()
     os.makedirs(os.path.join(RAIZ, "dist"), exist_ok=True)
     destino = os.path.join(RAIZ, "dist", f"claudia_qgis-{versao()}.zip")
     with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:

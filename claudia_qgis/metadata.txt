@@ -86,7 +86,7 @@ changelog=0.4.7 : plans by usage — the plugin now shows the two account states
     and the menu, and one notice with a "See the plans" button when the day's
     requests run out (they come back at midnight, Brasília time). On a
     subscription: the monthly usage as a percentage, with the renewal date in
-    the menu, one notice when it passes 80% and one, with the "See the plans"
+    the menu, one notice when it passes 80 percent and one, with the "See the plans"
     button, when it runs out. Older servers keep working as before. Command
     handlers updated to nkarasiak/qgis-mcp v0.15.3: in Processing models,
     '=$area' style formulas are evaluated per feature and run_model accepts

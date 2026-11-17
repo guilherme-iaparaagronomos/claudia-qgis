@@ -36,6 +36,11 @@ Nothing yet.
 
 Released on 2026-11-17, ahead of the community plans by usage.
 
+Re-packaged the same day: the changelog in `metadata.txt` had a "%" ("80%"), and the QGIS plugin portal reads
+every field of that file and refused the upload ("'%' must be followed by '%' or '('"). The text now says
+"80 percent"; no code changed. `tests/metadata_check.py` reads the file the way the portal does, and
+`empacota.py` runs it before building the ZIP.
+
 - Plans by usage. The community now tells the plugin two new account states, and the plugin shows
   them in the toolbar button, the status bar and the menu (ClaudIA button and Plugins → ClaudIA
   QGIS):
